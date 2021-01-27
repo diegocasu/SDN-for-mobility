@@ -3,6 +3,7 @@ package it.unipi.floodlight;
 import java.util.Map;
 import java.util.Set;
 
+import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
 import net.floodlightcontroller.core.module.IFloodlightService;
@@ -38,4 +39,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It returns the list of access switches
 	public Set<String> getAccessSwitches();
+	
+	//It subscribe a given user to the service.
+	public String addAccessSwitch(DatapathId dpid);
 }

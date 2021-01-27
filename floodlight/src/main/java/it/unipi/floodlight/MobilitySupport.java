@@ -153,6 +153,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/removeserver/json", RemoveServer.class);
 	        // This resource will show the list of access switches
 	        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
+	        // This resource will add a given switch to the list of access switches
+	        router.attach("/addaccessswitch/json", AddAccessSwitch.class);
     		
 			return router;
 		}
@@ -270,5 +272,19 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	    }
 	
 		return list;
+    }
+    
+    @Override
+    public String addAccessSwitch(DatapathId dpid){
+    	//check if switch is already present.
+    	for (DatapathId sdpid : accessSwitch){
+	    	if(sdpid.toString().equals(dpid.toString()))
+	    		return new String("Switch Already Present");
+	    }
+    	
+    	//insert new access switch
+    	accessSwitch.add(dpid);
+    	
+    	return "Access Switch Added";
     }
 }
