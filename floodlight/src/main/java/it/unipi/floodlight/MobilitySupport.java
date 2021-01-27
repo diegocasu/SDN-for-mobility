@@ -139,6 +139,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/getusers/json", GetUserList.class);
 	        // This resource will insert a given user
 	        router.attach("/insertuser/json", InsertUser.class);
+	        // This resource will remove a given user
+	        router.attach("/removeuser/json", RemoveUser.class);
     		
 			return router;
 		}
@@ -168,19 +170,26 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	//check if user is already subscribed or if the username is already present.
     	for (Map.Entry me : subscribedUsers.entrySet()){
     		if(((MacAddress)me.getValue()).toString().equals(MAC.toString()))
-    			return new String("User already subscribed");;
+    			return new String("User already subscribed");
     		if(((String)me.getKey()).equals(username))
     			return new String("Username already in use");
 	    }
     	//insert new user
     	subscribedUsers.put(username,MAC);
     	
-    	return "OK";
+    	return "Subscription Successful";
     }
     
     @Override
-    public boolean removeUser(String username){
-    	return true;
+    public String removeUser(String username){
+    	//check if the user is subscribed
+    	for (Map.Entry me : subscribedUsers.entrySet()){
+    		if(((String)me.getKey()).equals(username)){
+    			subscribedUsers.remove(username);
+    			return new String("User Removed");
+    		}		
+	    }
+    	return new String("Username not present");
     }
     
 }

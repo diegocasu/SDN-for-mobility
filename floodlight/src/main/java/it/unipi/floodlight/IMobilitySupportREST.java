@@ -17,5 +17,5 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	public String subscribeUser(String username, MacAddress MAC);
 	
 	//It remove a given user from the list of subscribed users. It returns true if removal was successful
-	public boolean removeUser(String username);
+	public String removeUser(String username);
 }
