@@ -119,7 +119,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     		// This resource will show the list of subscribed users
 	        router.attach("/getusers/json", GetUserList.class);
     		
-			return null;
+			return router;
 		}
 	 
 	    /**
