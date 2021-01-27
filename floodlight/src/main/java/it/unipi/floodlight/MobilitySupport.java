@@ -8,6 +8,7 @@ import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.restserver.IRestApiService;
 import net.floodlightcontroller.restserver.RestletRoutable;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
@@ -27,6 +28,7 @@ import java.util.*;
 public class MobilitySupport implements IFloodlightModule, IOFMessageListener, IMobilitySupportREST {
     protected static Logger logger = LoggerFactory.getLogger(MobilitySupport.class);
     protected IFloodlightProviderService floodlightProvider;
+    protected IRestApiService restApiService; // Reference to the Rest API service
 
     // Default virtual IP and MAC addresses of the service.
     private IPv4Address SERVICE_IP = IPv4Address.of("8.8.8.8");
@@ -64,12 +66,16 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     @Override
     public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-        return null;
+    	Collection<Class<? extends IFloodlightService>> l = new ArrayList<Class<? extends IFloodlightService>>();
+	    l.add(IMobilitySupportREST.class);
+	    return l;
     }
 
     @Override
     public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-        return null;
+    	Map<Class<? extends IFloodlightService>, IFloodlightService> m = new HashMap<Class<? extends IFloodlightService>, IFloodlightService>();
+	    m.put(IMobilitySupportREST.class, this);
+	    return m;
     }
 
     @Override
@@ -77,6 +83,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         Collection<Class<? extends IFloodlightService>> dependency = new ArrayList<>();
         dependency.add(IFloodlightProviderService.class);
 
+        // Add among the dependences the RestApi service
+	    dependency.add(IRestApiService.class);
         return dependency;
     }
 
@@ -84,6 +92,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public void init(FloodlightModuleContext context) throws FloodlightModuleException {
         logger.info("Initializing mobility support module.");
         floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
+        // Retrieve a pointer to the rest api service
+     	restApiService = context.getServiceImpl(IRestApiService.class);
 
         server.put(IPv4Address.of("10.0.1.1"), MacAddress.of("00:00:00:00:01:01"));
         server.put(IPv4Address.of("10.0.1.2"), MacAddress.of("00:00:00:00:01:02"));
@@ -101,6 +111,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     @Override
     public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
+        
+        // Add as REST interface the one defined in the LoadBalancerWebRoutable class
+     	restApiService.addRestletRoutable(new MobilitySupportWebRoutable());
     }
     
     /**
