@@ -35,7 +35,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private MacAddress SERVICE_MAC =  MacAddress.of("FE:FE:FE:FE:FE:FE");
 
     // Subscribed users.
-    private Map<String, MacAddress> subscribedUser = new HashMap<>();
+    private Map<String, MacAddress> subscribedUsers = new HashMap<>();
 
     // Servers implementing the service.
     private HashMap<IPv4Address, MacAddress> server = new HashMap<>();
@@ -99,9 +99,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         server.put(IPv4Address.of("10.0.1.2"), MacAddress.of("00:00:00:00:01:02"));
         server.put(IPv4Address.of("10.0.1.3"), MacAddress.of("00:00:00:00:01:03"));
         
-        subscribedUser.put("aaaa",MacAddress.of("00:00:00:00:00:01"));
-        subscribedUser.put("bbbb",MacAddress.of("00:00:00:00:00:02"));
-        subscribedUser.put("cccc",MacAddress.of("00:00:00:00:00:03"));
+        subscribedUsers.put("aaaa",MacAddress.of("00:00:00:00:00:01"));
+        subscribedUsers.put("bbbb",MacAddress.of("00:00:00:00:00:02"));
+        subscribedUsers.put("cccc",MacAddress.of("00:00:00:00:00:03"));
 
         accessSwitch.add(DatapathId.of("00:00:00:00:00:00:AC:01"));
         accessSwitch.add(DatapathId.of("00:00:00:00:00:00:AC:03"));
@@ -145,8 +145,14 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	}
     
     @Override
-    public Map<String, MacAddress> getSubscribedUser(){
-    	return subscribedUser;
+    public Map<String, Object> getSubscribedUsers(){
+    	Map<String, Object> list = new HashMap<String, Object>();
+    	
+		for (Map.Entry me : subscribedUsers.entrySet()) {
+	          list.put((String)me.getKey(),me.getValue());
+	        }
+	
+		return list;
     }
     
     @Override

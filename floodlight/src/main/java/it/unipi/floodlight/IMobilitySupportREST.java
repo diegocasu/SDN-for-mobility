@@ -11,7 +11,7 @@ import net.floodlightcontroller.core.module.IFloodlightService;
 
 public interface IMobilitySupportREST extends IFloodlightService{
 	//It returns the list of subscribed users
-	public Map<String, MacAddress> getSubscribedUser();
+	public Map<String, Object> getSubscribedUsers();
 	
 	//It subscribe a given user to the service. It returns true if subscription was successful
 	public boolean subscribeUser(String username, MacAddress MAC);

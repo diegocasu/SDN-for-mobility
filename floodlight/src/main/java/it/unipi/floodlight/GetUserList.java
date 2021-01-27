@@ -9,10 +9,10 @@ import org.restlet.resource.ServerResource;
 public class GetUserList extends ServerResource{
 	
 	@Get("json")
-    public Map<String, MacAddress> Test() {
+    public Map<String, Object> show() {
     	
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-    	return ms.getSubscribedUser();
+    	return ms.getSubscribedUsers();
     	
     }
 
