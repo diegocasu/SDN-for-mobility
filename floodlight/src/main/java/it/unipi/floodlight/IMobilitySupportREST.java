@@ -2,6 +2,7 @@ package it.unipi.floodlight;
 
 import java.util.Map;
 
+import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
 import net.floodlightcontroller.core.module.IFloodlightService;
 
@@ -21,4 +22,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It returns the server Virtual IP and MAC
 	public Map<String, Object> getVirtualAddress();
+	
+	//It subscribe a given user to the service.
+	public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC);
 }

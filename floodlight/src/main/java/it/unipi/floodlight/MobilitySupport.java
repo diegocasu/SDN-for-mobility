@@ -32,7 +32,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     // Default virtual IP and MAC addresses of the service.
     private IPv4Address SERVICE_IP = IPv4Address.of("8.8.8.8");
-    private MacAddress SERVICE_MAC =  MacAddress.of("FE:FE:FE:FE:FE:FE");
+    private MacAddress SERVICE_MAC = MacAddress.of("FE:FE:FE:FE:FE:FE");
 
     // Subscribed users.
     private Map<String, MacAddress> subscribedUsers = new HashMap<>();
@@ -142,7 +142,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        // This resource will remove a given user
 	        router.attach("/removeuser/json", RemoveUser.class);
 	        // This resource will show Server Virtual IP and MAC Address
-	        router.attach("/serveraddress/json", GetVirtualAddress.class);
+	        router.attach("/getserveraddress/json", GetVirtualAddress.class);
+	        // This resource will set Server Virtual IP and MAC Address
+	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
     		
 			return router;
 		}
@@ -202,6 +204,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 		info.put("IPv4:", SERVICE_IP.toString());
 		
 		return info;
+    }
+    
+    @Override
+    public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC){
+    	//update virtual address
+    	SERVICE_IP=ipv4;
+    	SERVICE_MAC=MAC;
+    	
+    	return "Virtual Address Updated";
     }
     
 }
