@@ -11,8 +11,6 @@ public class GetUserList extends ServerResource{
     public Map<String, Object> show() {
     	
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-    	return ms.getSubscribedUsers();
-    	
+    	return ms.getSubscribedUsers();	
     }
-
 }

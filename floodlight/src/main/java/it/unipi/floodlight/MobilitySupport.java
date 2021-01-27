@@ -159,7 +159,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	Map<String, Object> list = new HashMap<String, Object>();
     	
 		for (Map.Entry me : subscribedUsers.entrySet()){
-	    	list.put((String)me.getKey(),me.getValue());
+	    	list.put((String)me.getKey(),me.getValue().toString());
 	    }
 	
 		return list;
