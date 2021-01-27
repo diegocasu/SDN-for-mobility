@@ -145,6 +145,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/getserveraddress/json", GetVirtualAddress.class);
 	        // This resource will set Server Virtual IP and MAC Address
 	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
+	        // This resource will show the list of servers providing the service
+	        router.attach("/getservers/json", GetServers.class);
     		
 			return router;
 		}
@@ -215,4 +217,14 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	return "Virtual Address Updated";
     }
     
+    @Override
+    public Map<String, Object> getServers(){
+    	Map<String, Object> list = new HashMap<String, Object>();
+    	
+		for (Map.Entry me : server.entrySet()){
+	    	list.put(me.getKey().toString(),me.getValue().toString());
+	    }
+	
+		return list;
+    } 
 }
