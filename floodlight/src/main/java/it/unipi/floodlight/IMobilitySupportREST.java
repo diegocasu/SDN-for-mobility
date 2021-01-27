@@ -14,16 +14,16 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	//It returns the list of subscribed users
 	public Map<String, Object> getSubscribedUsers();
 	
-	//It subscribe a given user to the service.
+	//It subscribe a given user to the service
 	public String subscribeUser(String username, MacAddress MAC);
 	
-	//It remove a given user from the list of subscribed users. It returns true if removal was successful
+	//It remove a given user from the list of subscribed users
 	public String removeUser(String username);
 	
 	//It returns the server Virtual IP and MAC
 	public Map<String, Object> getVirtualAddress();
 	
-	//It subscribe a given user to the service.
+	//It subscribe a given user to the service
 	public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC);
 	
 	//It show the list of servers
@@ -31,4 +31,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It subscribe a given user to the service.
 	public String addServer(IPv4Address ipv4, MacAddress MAC);
+	
+	//It remove a given server from the list of available servers 
+	public String removeServer(IPv4Address ipv4);
 }

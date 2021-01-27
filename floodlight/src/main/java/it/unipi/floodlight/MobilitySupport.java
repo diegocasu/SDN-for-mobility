@@ -147,8 +147,10 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
 	        // This resource will show the list of servers providing the service
 	        router.attach("/getservers/json", GetServers.class);
-	        // This resource will show the list of servers providing the service
+	        // This resource will add a given server to the list o available servers
 	        router.attach("/addserver/json", AddServer.class);
+	        // This resource will remove a given server to the list o available servers
+	        router.attach("/removeserver/json", RemoveServer.class);
     		
 			return router;
 		}
@@ -243,5 +245,17 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	server.put(ipv4,MAC);
     	
     	return "Server Added";
+    }
+    
+    @Override
+    public String removeServer(IPv4Address ipv4){
+    	//check if the user is subscribed
+    	for (Map.Entry me : server.entrySet()){
+    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
+    			server.remove(ipv4);
+    			return new String("Server Removed");
+    		}		
+	    }
+    	return new String("Server not present");
     }
 }
