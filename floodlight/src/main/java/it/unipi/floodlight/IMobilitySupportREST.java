@@ -1,6 +1,7 @@
 package it.unipi.floodlight;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
@@ -34,4 +35,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It remove a given server from the list of available servers 
 	public String removeServer(IPv4Address ipv4);
+	
+	//It returns the list of access switches
+	public Set<String> getAccessSwitches();
 }

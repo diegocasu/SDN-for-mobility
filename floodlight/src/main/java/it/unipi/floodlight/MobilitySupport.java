@@ -151,6 +151,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/addserver/json", AddServer.class);
 	        // This resource will remove a given server to the list o available servers
 	        router.attach("/removeserver/json", RemoveServer.class);
+	        // This resource will show the list of access switches
+	        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
     		
 			return router;
 		}
@@ -257,5 +259,16 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     		}		
 	    }
     	return new String("Server not present");
+    }
+    
+    @Override
+    public Set<String> getAccessSwitches(){
+    	Set<String> list = new HashSet<String>();
+    	
+		for (DatapathId dpid : accessSwitch){
+	    	list.add(dpid.toString());
+	    }
+	
+		return list;
     }
 }
