@@ -45,12 +45,18 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
 
     @Override
     public boolean isCallbackOrderingPrereq(OFType type, String name) {
-        return false;
+        /* The TopologyManager and DeviceManager modules must execute before the
+        MobilitySupport module, to ensure that the actual topology of the network is learnt.
+        */
+        return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")));
     }
 
     @Override
     public boolean isCallbackOrderingPostreq(OFType type, String name) {
-        return false;
+        /* The Forwarding module must execute after the MobilitySupport module,
+         so that the latter has control over the virtualization of to the service.
+        */
+        return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
     }
 
     @Override
