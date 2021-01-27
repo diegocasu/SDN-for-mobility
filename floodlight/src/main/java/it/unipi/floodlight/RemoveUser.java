@@ -2,14 +2,14 @@ package it.unipi.floodlight;
 
 import java.io.IOException;
 
-import org.restlet.resource.Post;
+import org.restlet.resource.Delete;
 import org.restlet.resource.ServerResource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RemoveUser extends ServerResource{
-	@Post("json")
+	@Delete("json")
 	public String remove(String fmJson) {
 		String result = new String();
 		
