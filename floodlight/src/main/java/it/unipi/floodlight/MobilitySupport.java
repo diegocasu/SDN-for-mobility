@@ -67,7 +67,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     @Override
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-        return null;
+    	return Command.CONTINUE;
     }
 
     @Override
@@ -137,6 +137,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     		
     		// This resource will show the list of subscribed users
 	        router.attach("/getusers/json", GetUserList.class);
+	        // This resource will insert a given user
+	        router.attach("/insertuser/json", InsertUser.class);
     		
 			return router;
 		}
@@ -154,16 +156,26 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public Map<String, Object> getSubscribedUsers(){
     	Map<String, Object> list = new HashMap<String, Object>();
     	
-		for (Map.Entry me : subscribedUsers.entrySet()) {
-	          list.put((String)me.getKey(),me.getValue());
-	        }
+		for (Map.Entry me : subscribedUsers.entrySet()){
+	    	list.put((String)me.getKey(),me.getValue());
+	    }
 	
 		return list;
     }
     
     @Override
-    public boolean subscribeUser(String username, MacAddress MAC){
-    	return true;
+    public String subscribeUser(String username, MacAddress MAC){
+    	//check if user is already subscribed or if the username is already present.
+    	for (Map.Entry me : subscribedUsers.entrySet()){
+    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString()))
+    			return new String("User already subscribed");;
+    		if(((String)me.getKey()).equals(username))
+    			return new String("Username already in use");
+	    }
+    	//insert new user
+    	subscribedUsers.put(username,MAC);
+    	
+    	return "OK";
     }
     
     @Override

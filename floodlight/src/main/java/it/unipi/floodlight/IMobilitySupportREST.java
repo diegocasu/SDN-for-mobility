@@ -13,8 +13,8 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	//It returns the list of subscribed users
 	public Map<String, Object> getSubscribedUsers();
 	
-	//It subscribe a given user to the service. It returns true if subscription was successful
-	public boolean subscribeUser(String username, MacAddress MAC);
+	//It subscribe a given user to the service.
+	public String subscribeUser(String username, MacAddress MAC);
 	
 	//It remove a given user from the list of subscribed users. It returns true if removal was successful
 	public boolean removeUser(String username);
