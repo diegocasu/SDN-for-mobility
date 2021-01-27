@@ -155,6 +155,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
 	        // This resource will add a given switch to the list of access switches
 	        router.attach("/addaccessswitch/json", AddAccessSwitch.class);
+	        // This resource will add a given switch to the list of access switches
+	        router.attach("/removeaccessswitch/json", RemoveAccessSwitch.class);
     		
 			return router;
 		}
@@ -253,7 +255,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     
     @Override
     public String removeServer(IPv4Address ipv4){
-    	//check if the user is subscribed
+    	//check if the server is present
     	for (Map.Entry me : server.entrySet()){
     		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
     			server.remove(ipv4);
@@ -286,5 +288,17 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	accessSwitch.add(dpid);
     	
     	return "Access Switch Added";
+    }
+    
+    @Override
+    public String removeAccessSwitch(DatapathId dpid){
+    	//check if the access switch is present
+    	for (DatapathId sdpid : accessSwitch){
+    		if(sdpid.toString().equals(dpid.toString())){
+    			accessSwitch.remove(dpid);
+    			return new String("Access Switch Removed");
+    		}		
+	    }
+    	return new String("Access Switch not present");
     }
 }

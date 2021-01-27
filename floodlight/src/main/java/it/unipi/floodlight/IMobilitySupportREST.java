@@ -42,4 +42,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It subscribe a given user to the service.
 	public String addAccessSwitch(DatapathId dpid);
+	
+	//It subscribe a given user to the service.
+	public String removeAccessSwitch(DatapathId dpid);
 }

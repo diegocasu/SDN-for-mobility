@@ -2,6 +2,7 @@ package it.unipi.floodlight;
 
 import java.io.IOException;
 
+import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.restlet.resource.Delete;
 import org.restlet.resource.ServerResource;
@@ -9,7 +10,7 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class RemoveServer extends ServerResource{
+public class RemoveAccessSwitch extends ServerResource{
 	@Delete("json")
 	public String remove(String fmJson) {
 		String result = new String();
@@ -25,15 +26,15 @@ public class RemoveServer extends ServerResource{
 			JsonNode root = mapper.readTree(fmJson);
 			
 			// Get the field ipv4
-			IPv4Address ipv4;
+			DatapathId dpid;
 			try{
-				ipv4=IPv4Address.of(root.get("ipv4").asText());
+				dpid=DatapathId.of(root.get("dpid").asText());
 			}catch(Exception me){
-				return new String("Invalid IPv4 Address format");
+				return new String("Invalid DPID format");
 			}
 			
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-			result=ms.removeServer(ipv4);
+			result=ms.removeAccessSwitch(dpid);
 			
 		} catch (IOException e) {
 			e.printStackTrace();
