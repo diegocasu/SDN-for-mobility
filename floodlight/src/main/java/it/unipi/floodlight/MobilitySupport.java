@@ -8,19 +8,23 @@ import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.restserver.RestletRoutable;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
+import org.restlet.Context;
+import org.restlet.Restlet;
+import org.restlet.routing.Router;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 
-public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
+public class MobilitySupport implements IFloodlightModule, IOFMessageListener, IMobilitySupportREST {
     protected static Logger logger = LoggerFactory.getLogger(MobilitySupport.class);
     protected IFloodlightProviderService floodlightProvider;
 
@@ -84,6 +88,10 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         server.put(IPv4Address.of("10.0.1.1"), MacAddress.of("00:00:00:00:01:01"));
         server.put(IPv4Address.of("10.0.1.2"), MacAddress.of("00:00:00:00:01:02"));
         server.put(IPv4Address.of("10.0.1.3"), MacAddress.of("00:00:00:00:01:03"));
+        
+        subscribedUser.put("aaaa",MacAddress.of("00:00:00:00:00:01"));
+        subscribedUser.put("bbbb",MacAddress.of("00:00:00:00:00:02"));
+        subscribedUser.put("cccc",MacAddress.of("00:00:00:00:00:03"));
 
         accessSwitch.add(DatapathId.of("00:00:00:00:00:00:AC:01"));
         accessSwitch.add(DatapathId.of("00:00:00:00:00:00:AC:03"));
@@ -94,4 +102,48 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
     public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
     }
+    
+    /**
+	 * Class to define the rest interface 
+	 */
+    
+    public class MobilitySupportWebRoutable implements RestletRoutable {
+	    /**
+	     * Create the Restlet router and bind to the proper resources.
+	     */
+    	@Override
+		public Restlet getRestlet(Context context) {
+			
+    		Router router = new Router(context);
+    		
+    		// This resource will show the list of subscribed users
+	        router.attach("/getusers/json", GetUserList.class);
+    		
+			return null;
+		}
+	 
+	    /**
+	     * Set the base path for the Topology
+	     */
+	    @Override
+	    public String basePath() {
+	        return "/ms";
+	    }
+	}
+    
+    @Override
+    public Map<String, MacAddress> getSubscribedUser(){
+    	return subscribedUser;
+    }
+    
+    @Override
+    public boolean subscribeUser(String username, MacAddress MAC){
+    	return true;
+    }
+    
+    @Override
+    public boolean removeUser(String username){
+    	return true;
+    }
+    
 }
