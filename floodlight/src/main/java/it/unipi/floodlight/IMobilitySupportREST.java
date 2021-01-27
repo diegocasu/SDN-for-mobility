@@ -18,4 +18,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It remove a given user from the list of subscribed users. It returns true if removal was successful
 	public String removeUser(String username);
+	
+	//It returns the server Virtual IP and MAC
+	public Map<String, Object> getVirtualAddress();
 }

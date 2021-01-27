@@ -141,6 +141,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/insertuser/json", InsertUser.class);
 	        // This resource will remove a given user
 	        router.attach("/removeuser/json", RemoveUser.class);
+	        // This resource will show Server Virtual IP and MAC Address
+	        router.attach("/serveraddress/json", GetVirtualAddress.class);
     		
 			return router;
 		}
@@ -190,6 +192,16 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     		}		
 	    }
     	return new String("Username not present");
+    }
+    
+    @Override
+    public Map<String, Object> getVirtualAddress(){
+    	Map<String, Object> info = new HashMap<String, Object>();
+    	
+		info.put("MAC:", SERVICE_MAC.toString());
+		info.put("IPv4:", SERVICE_IP.toString());
+		
+		return info;
     }
     
 }
