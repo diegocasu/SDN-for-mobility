@@ -28,4 +28,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	
 	//It show the list of servers
 	public Map<String, Object> getServers();
+	
+	//It subscribe a given user to the service.
+	public String addServer(IPv4Address ipv4, MacAddress MAC);
 }

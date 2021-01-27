@@ -147,6 +147,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
 	        // This resource will show the list of servers providing the service
 	        router.attach("/getservers/json", GetServers.class);
+	        // This resource will show the list of servers providing the service
+	        router.attach("/addserver/json", AddServer.class);
     		
 			return router;
 		}
@@ -227,4 +229,19 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	
 		return list;
     } 
+    
+    @Override
+    public String addServer(IPv4Address ipv4, MacAddress MAC){
+    	//check if server is already present.
+    	for (Map.Entry me : server.entrySet()){
+    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString()))
+    			return new String("MAC Address Already Present");
+    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString()))
+    			return new String("IPv4 Already Present");
+	    }
+    	//insert new user
+    	server.put(ipv4,MAC);
+    	
+    	return "Server Added";
+    }
 }
