@@ -29,10 +29,10 @@ def topology():
                              channel="1", position="95,30,0", protocols="OpenFlow13")
 
     info("*** Adding stations\n")
-    sta1 = net.addStation("sta1", ip="10.0.0.1", mac="00:00:00:00:00:01", position="10,30,0")
-    sta2 = net.addStation("sta2", ip="10.0.0.2", mac="00:00:00:00:00:02", position="20,40,0")
-    sta3 = net.addStation("sta3", ip="10.0.0.3", mac="00:00:00:00:00:03", position="50,40,0")
-    sta4 = net.addStation("sta4", ip="10.0.0.4", mac="00:00:00:00:00:04", position="90,20,0")
+    sta1 = net.addStation("sta1", ip="10.0.0.1", mac="00:00:00:00:00:01", position="10,30,0", defaultRoute="sta1-wlan0")
+    sta2 = net.addStation("sta2", ip="10.0.0.2", mac="00:00:00:00:00:02", position="20,40,0", defaultRoute="sta2-wlan0")
+    sta3 = net.addStation("sta3", ip="10.0.0.3", mac="00:00:00:00:00:03", position="50,40,0", defaultRoute="sta3-wlan0")
+    sta4 = net.addStation("sta4", ip="10.0.0.4", mac="00:00:00:00:00:04", position="90,20,0", defaultRoute="sta4-wlan0")
 
     info("*** Adding switches\n")
     s1 = net.addSwitch("s1", cls=OVSKernelSwitch, dpid="00:00:00:00:00:00:00:01", protocols="OpenFlow13")
@@ -44,9 +44,9 @@ def topology():
     s7 = net.addSwitch("s7", cls=OVSKernelSwitch, dpid="00:00:00:00:00:00:00:07", protocols="OpenFlow13")
 
     info("*** Adding hosts\n")
-    h1 = net.addHost("h1", cls=Host, ip="10.0.1.1", defaultRoute=None, mac="00:00:00:00:01:01")
-    h2 = net.addHost("h2", cls=Host, ip="10.0.1.2", defaultRoute=None, mac="00:00:00:00:01:02")
-    h3 = net.addHost("h3", cls=Host, ip="10.0.1.3", defaultRoute=None, mac="00:00:00:00:01:03")
+    h1 = net.addHost("h1", cls=Host, ip="10.0.1.1", mac="00:00:00:00:01:01", defaultRoute="h1-eth0")
+    h2 = net.addHost("h2", cls=Host, ip="10.0.1.2", mac="00:00:00:00:01:02", defaultRoute="h2-eth0")
+    h3 = net.addHost("h3", cls=Host, ip="10.0.1.3", mac="00:00:00:00:01:03", defaultRoute="h3-eth0")
 
     net.setPropagationModel(model="logDistance", exp=5)
 
