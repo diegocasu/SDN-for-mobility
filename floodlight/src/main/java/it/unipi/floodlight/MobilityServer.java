@@ -4,7 +4,6 @@ import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
 
 import java.math.BigInteger;
-import java.util.Objects;
 
 
 public class MobilityServer {
@@ -14,6 +13,10 @@ public class MobilityServer {
 
 
     public MobilityServer(MacAddress serverMAC, IPv4Address serverIP) {
+        if (serverMAC == null)
+            throw new IllegalArgumentException("The MAC address of the server must be specified.");
+
+        // The IP address can be null, to allow comparisons when only the MAC address is known.
         this.serverIP = serverIP;
         this.serverMAC = serverMAC;
         this.numberOfTranslations = new BigInteger("0");
@@ -48,12 +51,20 @@ public class MobilityServer {
             return false;
 
         MobilityServer that = (MobilityServer) o;
+
+        // If one of the IP addresses is null, compare only the MAC addresses.
+        if (serverIP == null || that.getServerIP() == null)
+            return serverMAC.equals(that.getServerMAC());
+
         return serverMAC.equals(that.getServerMAC()) && serverIP.equals(that.getServerIP());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(serverMAC, serverIP);
+        /* Use only the MAC address, which is unique, to have a consistent hashCode()
+        behaviour with respect to equals() when the IP address is null.
+        */
+        return serverMAC.hashCode();
     }
 
     @Override
