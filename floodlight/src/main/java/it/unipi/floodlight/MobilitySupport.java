@@ -32,7 +32,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
     private MacAddress SERVICE_MAC =  MacAddress.of("FE:FE:FE:FE:FE:FE");
 
     // Subscribed users.
-    private Map<String, MacAddress> subscribedUser = new HashMap<>();
+    private final Set<MobilityUser> subscribedUsers = new HashSet<>();
 
     // Servers implementing the service.
     private final Set<MobilityServer> servers = new HashSet<>();
@@ -67,229 +67,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
          so that the latter has control over the virtualization of to the service.
         */
         return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
-    }
-
-    private void handleARPRequest(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) {
-
-        // Double check that the payload is ARP
-        Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        if (! (eth.getPayload() instanceof ARP))
-            return;
-
-        // Cast the ARP request
-        ARP arpRequest = (ARP) eth.getPayload();
-
-        if( arpRequest.getTargetProtocolAddress().compareTo(SERVICE_IP) == 0 ){
-            //This ARP request is the one issued by the client to discover Server (Virtual) MAC
-
-            // Generate ARP reply with MAC address = SERVICE_MAC
-            IPacket arpReply = new Ethernet()
-                    .setSourceMACAddress(SERVICE_MAC)
-                    .setDestinationMACAddress(eth.getSourceMACAddress())
-                    .setEtherType(EthType.ARP)
-                    .setPriorityCode(eth.getPriorityCode())
-                    .setPayload(
-                            new ARP()
-                                    .setHardwareType(ARP.HW_TYPE_ETHERNET)
-                                    .setProtocolType(ARP.PROTO_TYPE_IP)
-                                    .setHardwareAddressLength((byte) 6)
-                                    .setProtocolAddressLength((byte) 4)
-                                    .setOpCode(ARP.OP_REPLY)
-                                    .setSenderHardwareAddress(SERVICE_MAC) // Set my MAC address
-                                    .setSenderProtocolAddress(SERVICE_IP) // Set my IP address
-                                    .setTargetHardwareAddress(arpRequest.getSenderHardwareAddress())
-                                    .setTargetProtocolAddress(arpRequest.getSenderProtocolAddress()));
-
-            // Create the Packet-Out and set basic data for it (buffer id and in port)
-            OFPacketOut.Builder pob = sw.getOFFactory().buildPacketOut();
-            pob.setBufferId(OFBufferId.NO_BUFFER);
-            pob.setInPort(OFPort.ANY);
-
-            // Create action -> send the packet back from the source port
-            OFActionOutput.Builder actionBuilder = sw.getOFFactory().actions().buildOutput();
-            OFPort inPort =  pi.getMatch().get(MatchField.IN_PORT);
-            actionBuilder.setPort(inPort);
-
-            // Assign the action
-            pob.setActions(Collections.singletonList((OFAction) actionBuilder.build()));
-
-            // Set the ARP reply as packet data
-            byte[] packetData = arpReply.serialize();
-            pob.setData(packetData);
-
-            logger.info("-------> Sending out ARP reply to the client\n");
-
-            sw.write(pob.build());
-        } else {
-            // This ARP request is the one issued by the server to discover the client MAC
-
-            Iterator<? extends IDevice> devices = deviceService.queryDevices(null, null, arpRequest.getTargetProtocolAddress(), null, null);
-
-            if(devices.hasNext()){
-                // It exists one device with the given IP
-
-                MacAddress clientMAC = devices.next().getMACAddress();
-                // Send the ARP response to the Server containing the MAC of the client
-
-                // Generate ARP reply with MAC address = the MAC returned from the DeviceManager
-                IPacket arpReply = new Ethernet()
-                        .setSourceMACAddress(clientMAC)
-                        .setDestinationMACAddress(eth.getSourceMACAddress())
-                        .setEtherType(EthType.ARP)
-                        .setPriorityCode(eth.getPriorityCode())
-                        .setPayload(
-                                new ARP()
-                                        .setHardwareType(ARP.HW_TYPE_ETHERNET)
-                                        .setProtocolType(ARP.PROTO_TYPE_IP)
-                                        .setHardwareAddressLength((byte) 6)
-                                        .setProtocolAddressLength((byte) 4)
-                                        .setOpCode(ARP.OP_REPLY)
-                                        .setSenderHardwareAddress(clientMAC) // Set client MAC address
-                                        .setSenderProtocolAddress(arpRequest.getTargetProtocolAddress()) // Set client IP address
-                                        .setTargetHardwareAddress(arpRequest.getSenderHardwareAddress())
-                                        .setTargetProtocolAddress(arpRequest.getSenderProtocolAddress()));
-
-                // Create the Packet-Out and set basic data for it (buffer id and in port)
-                OFPacketOut.Builder pob = sw.getOFFactory().buildPacketOut();
-                pob.setBufferId(OFBufferId.NO_BUFFER);
-                pob.setInPort(OFPort.ANY);
-
-                // Create action -> send the packet back from the source port
-                OFActionOutput.Builder actionBuilder = sw.getOFFactory().actions().buildOutput();
-                OFPort inPort =  pi.getMatch().get(MatchField.IN_PORT);
-                actionBuilder.setPort(inPort);
-
-                // Assign the action
-                pob.setActions(Collections.singletonList((OFAction) actionBuilder.build()));
-
-                // Set the ARP reply as packet data
-                byte[] packetData = arpReply.serialize();
-                pob.setData(packetData);
-
-                logger.info("------->  Sending out ARP reply to the server\n");
-
-                sw.write(pob.build());
-            }
-
-        }
-    }
-
-    public Command toRefactorReceive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-        Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
-                                                              IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-
-        IPacket pkt = eth.getPayload();
-
-        // Cast to Packet-In
-        OFPacketIn pi = (OFPacketIn) msg;
-
-        // TODO: adapt to the insertion of MobilityServer.class
-        if(!server.containsValue(eth.getSourceMACAddress())){
-            // This packet comes from a client (not a server)
-
-            logger.info("--> This packet comes from a client. MAC: " + eth.getSourceMACAddress());
-            if(subscribedUser.containsValue(eth.getSourceMACAddress())){
-                // This packet comes from a subscribed user
-
-                logger.info("---> This packet comes from a subscribed user ");
-                if(accessSwitches.contains(sw.getId())){ // Potrebbe non essere necessario, perchè siccome
-                    // The PACKET_IN comes from an access switch
-
-                    logger.info("----> The PACKET_IN comes from an access switch ");
-                    if(eth.isBroadcast() || eth.isMulticast()){
-                        if (pkt instanceof ARP) {
-                            // This is an ARP request from the client
-
-                            logger.info("----->  This is an ARP request from the client ");
-                            ARP ARPrequest= (ARP) eth.getPayload();
-
-                            if(ARPrequest.getTargetProtocolAddress().compareTo(SERVICE_IP) != 0){
-                                // The ARP request from the client has the wrong IP Target Address --> Discard the packet
-
-                                logger.error("------>  The ARP request from the client has the wrong IP Target Address --> Discard the packet ");
-                                return Command.STOP;
-
-                            } else {
-                                // The ARP request from the client has the correct (the virtual one) IP target Address --> Reply to the ARP Request
-
-                                logger.info("------>  The ARP request from the client has the correct (the virtual one) IP target Address --> Reply to the ARP Request");
-
-                                handleARPRequest(sw, pi, cntx);
-
-                                return Command.CONTINUE;
-
-                            }
-                        }
-                    } else {
-                        // This is not an ARP request, check if it is an IP packet
-
-                        logger.info("-----> This is not an ARP request, check if it is an IP packet");
-                        if (pkt instanceof IPv4) {
-                            // This is an IP packet, check if IP or MAC destination address are virtual
-
-                            logger.info("------> This is an IP packet, check if IP or MAC destination address are virtual");
-                            IPv4 IPpacket = (IPv4) eth.getPayload();
-                            if((!(eth.getDestinationMACAddress().compareTo(SERVICE_MAC) == 0))
-                                    || (!(IPpacket.getDestinationAddress().compareTo(SERVICE_IP) == 0))){
-                                // The MAC or the IP address are not the virtual address of the service --> Discard the packet
-
-                                logger.error("-------> The MAC or the IP address are not the virtual address of the service --> Discard the packet");
-                                return Command.STOP;
-
-                            } else {
-                                // Both MAC and IP address are correct (virtual address of the service)
-
-                                logger.info("-------> Both MAC and IP address are correct (virtual address of the service)");
-                                return Command.STOP; //Just for testing, remove it
-                            }
-                        } else {
-                            // This is neither an ARP request, nor an IP packet --> Discard the packet
-
-                            logger.info("-----> This is neither an ARP request, nor an IP packet --> Discard the packet");
-                            return Command.STOP;
-                        }
-                    }
-                } else{
-                    // The PACKET_IN comes from an internal switch (from a subscribed user)
-
-                }
-
-            } else {
-                //This packet comes from an unsubscribed user
-
-                logger.info("---> This packet comes from an unsubscribed user --> Discard the packet");
-                return Command.STOP;
-            }
-        } else {
-            // This Packet comes from a Server, filtering not needed, we accept everything from servers
-
-            if(eth.isBroadcast() || eth.isMulticast()){
-                if (pkt instanceof ARP) {
-                    // This is an ARP request from the server
-                    // Since the access switch for the server will reply to the ARP request of the server
-                    // we are sure that there will be no broadcast ARP request entering internal switches
-                    // so this is for sure an access switch for the server.
-
-                    logger.info("----->  This is an ARP request from the server ");
-                    ARP ARPrequest= (ARP) eth.getPayload();
-
-                    handleARPRequest(sw, pi, cntx);
-
-                    return Command.CONTINUE;
-
-                }
-            }
-
-        }
-
-
-
-        return Command.STOP;
-    }
-
-    private boolean dropPacket() {
-        // TODO: replace with implemented method.
-        return false;
     }
 
     private void increasePriorityOfDefaultRule(DatapathId switchDPID) {
@@ -340,33 +117,45 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
     }
 
     private boolean isServerAddress(MacAddress addressMAC, IPv4Address addressIP) {
-        // Check if the given (MAC address, IP address) couple identifies a server.
+        /* Check if the given (MAC address, IP address) couple identifies a server.
+        If addressIP is null, the comparison is done using only addressMAC.
+        */
         return servers.contains(new MobilityServer(addressMAC, addressIP));
+    }
+
+    private boolean isSubscribedUser(MacAddress addressMAC) {
+        /* Check if the given MAC address identifies a subscribed server.
+        Giving a null username, the comparison is done using only addressMAC.
+        */
+        return subscribedUsers.contains(new MobilityUser(null, addressMAC));
     }
 
     private Set<SwitchPort> getSwitchesAttachedToDevice(MacAddress deviceMAC) {
         // Search based only on MAC addresses.
         logger.debug("DEVICE: " + deviceMAC); // TODO: remove
-        Iterator<? extends IDevice> deviceFound = deviceService.queryDevices(deviceMAC,
-                                                                             null,
-                                                                             null,
-                                                                             null,
-                                                                             null);
+        Iterator<? extends IDevice> devices = deviceService.queryDevices(deviceMAC,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
         Set<SwitchPort> attachedSwitches = new HashSet<>();
         int numberOfDevices = 0;
 
-        while(deviceFound.hasNext()) {
-            attachedSwitches.addAll(Arrays.asList(deviceFound.next().getAttachmentPoints()));
+        while(devices.hasNext()) {
+            attachedSwitches.addAll(Arrays.asList(devices.next().getAttachmentPoints()));
             numberOfDevices++;
 
-            if (numberOfDevices > 1)
+            if (numberOfDevices > 1) {
+                logger.error("Multiple devices with the same MAC address were found in the network." +
+                        "Returning no attachment points.");
                 break;
+            }
         }
 
         logger.debug("Number of devices: " + numberOfDevices); // TODO:remove
         /* Conditions causing the return of no switches:
         1) the device is not in the network anymore;
-        2) multiple devices with the same MAC and IP addresses are found (it should not be possible);
+        2) multiple devices with the same MAC address are found (it should not be possible);
         3) the device is still a tracked device, but it is disconnected (no attachment points).
         */
         if (numberOfDevices == 0 || numberOfDevices > 1 || attachedSwitches.isEmpty())
@@ -629,7 +418,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         logger.info("Packet-out and flow mod correctly sent to the switch.");
     }
 
-    public Command handleIPPacket(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, IPv4 ipPacket) {
+    private Command handleIpPacket(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, IPv4 ipPacket) {
         MacAddress sourceMAC = ethernetFrame.getSourceMACAddress();
         MacAddress destinationMAC = ethernetFrame.getDestinationMACAddress();
         IPv4Address sourceIP = ipPacket.getSourceAddress();
@@ -642,7 +431,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
 
         // The packet is a request to the service from a user.
         if (isAccessSwitch(sw.getId()) && isServiceAddress(destinationMAC, destinationIP)) {
-            logger.info("The packet is a request to the service transiting in an access switch.");
+            logger.info("The packet is a request to the service transiting through an access switch.");
             logger.info("Handling the translation of the destination address.");
             handleRequestToService(sw, packetIn, ethernetFrame, ipPacket);
             return Command.STOP;
@@ -650,16 +439,173 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
 
         // The packet is a response from the service to a user.
         if (isAccessSwitch(sw.getId()) && isServerAddress(sourceMAC, sourceIP)) {
-            logger.info("The packet is a response from the service transiting in an access switch.");
+            logger.info("The packet is a response from the service transiting through an access switch.");
             logger.info("Handling the translation of the source address.");
             handleResponseFromServer(sw, packetIn, ethernetFrame, ipPacket);
             return Command.STOP;
         }
 
-        // The packet is transiting within the network.
-        logger.info("The packet is transiting within the network.");
+        // The packet is transiting through the network.
+        logger.info("The packet is transiting through the network.");
         logger.info("Leaving the processing to the Forwarding module.");
         return Command.CONTINUE;
+    }
+
+    private IPacket createArpReplyForDevice(Ethernet ethernetFrame, ARP arpRequest, MacAddress deviceMac) {
+        // Generate an ARP reply with source MAC address equal to deviceMac.
+        return new Ethernet()
+                .setSourceMACAddress(deviceMac)
+                .setDestinationMACAddress(ethernetFrame.getSourceMACAddress())
+                .setEtherType(EthType.ARP)
+                .setPriorityCode(ethernetFrame.getPriorityCode())
+                .setPayload(
+                        new ARP()
+                                .setHardwareType(ARP.HW_TYPE_ETHERNET)
+                                .setProtocolType(ARP.PROTO_TYPE_IP)
+                                .setHardwareAddressLength((byte) 6)
+                                .setProtocolAddressLength((byte) 4)
+                                .setOpCode(ARP.OP_REPLY)
+                                .setSenderHardwareAddress(deviceMac)
+                                .setSenderProtocolAddress(arpRequest.getTargetProtocolAddress())
+                                .setTargetHardwareAddress(arpRequest.getSenderHardwareAddress())
+                                .setTargetProtocolAddress(arpRequest.getSenderProtocolAddress()));
+    }
+
+    private IPacket createArpReplyForService(Ethernet ethernetFrame, ARP arpRequest) {
+        // Generate an ARP reply with MAC address equal to SERVICE_MAC.
+        return new Ethernet()
+                .setSourceMACAddress(SERVICE_MAC)
+                .setDestinationMACAddress(ethernetFrame.getSourceMACAddress())
+                .setEtherType(EthType.ARP)
+                .setPriorityCode(ethernetFrame.getPriorityCode())
+                .setPayload(
+                        new ARP()
+                                .setHardwareType(ARP.HW_TYPE_ETHERNET)
+                                .setProtocolType(ARP.PROTO_TYPE_IP)
+                                .setHardwareAddressLength((byte) 6)
+                                .setProtocolAddressLength((byte) 4)
+                                .setOpCode(ARP.OP_REPLY)
+                                .setSenderHardwareAddress(SERVICE_MAC)
+                                .setSenderProtocolAddress(SERVICE_IP)
+                                .setTargetHardwareAddress(arpRequest.getSenderHardwareAddress())
+                                .setTargetProtocolAddress(arpRequest.getSenderProtocolAddress()));
+    }
+
+    private Command handleArpRequest(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, ARP arpRequest) {
+        IPacket arpReply = null;
+
+        if(arpRequest.getTargetProtocolAddress().compareTo(SERVICE_IP) == 0 ){
+            // The ARP request is issued to discover the virtual MAC of the service.
+            arpReply = createArpReplyForService(ethernetFrame, arpRequest);
+        } else {
+            // The ARP request is issued by a server to discover the MAC address of a user or of another server.
+            int numberOfDevices = 0;
+            Iterator<? extends IDevice> devices = deviceService.queryDevices(null,
+                                                                             null,
+                                                                             arpRequest.getTargetProtocolAddress(),
+                                                                             null,
+                                                                             null);
+            while (devices.hasNext()) {
+                arpReply = createArpReplyForDevice(ethernetFrame, arpRequest, devices.next().getMACAddress());
+                numberOfDevices++;
+
+                if (numberOfDevices > 1) {
+                    logger.error("Multiple devices with the same IP address were found in the network. " +
+                                         "Dropping the ARP reply.");
+                    return Command.STOP;
+                }
+            }
+
+            if (arpReply == null) {
+                logger.info("The IP address in the ARP request does not belong to a device in the network. " +
+                                    "Dropping the ARP reply.");
+                return Command.STOP;
+            }
+        }
+
+        // Create the packet-out.
+        OFPacketOut.Builder packetOutBuilder = sw.getOFFactory().buildPacketOut();
+        packetOutBuilder.setBufferId(OFBufferId.NO_BUFFER);
+        packetOutBuilder.setInPort(OFPort.ANY);
+
+        // Create action: send the packet back from the source port.
+        OFActionOutput.Builder actionBuilder = sw.getOFFactory().actions().buildOutput();
+        OFPort inPort = packetIn.getMatch().get(MatchField.IN_PORT);
+        actionBuilder.setPort(inPort);
+
+        // Assign the action
+        packetOutBuilder.setActions(Collections.singletonList((OFAction) actionBuilder.build()));
+
+        // Set the ARP reply as packet data
+        packetOutBuilder.setData(arpReply.serialize());
+
+        logger.info("Sending out the ARP reply");
+        sw.write(packetOutBuilder.build());
+
+        return Command.STOP;
+    }
+
+    private boolean dropPacket(IOFSwitch sw, Ethernet ethernetFrame) {
+        MacAddress sourceMAC = ethernetFrame.getSourceMACAddress();
+        MacAddress destinationMAC = ethernetFrame.getDestinationMACAddress();
+        logger.info("Received a packet from " + sourceMAC + " with destination " + destinationMAC);
+
+        // If the packet comes from a server, it is always accepted.
+        if (isServerAddress(sourceMAC, null)) {
+            logger.info("The packet comes from a server. Accepting the packet.");
+            return false;
+        }
+
+        // If the packet comes from an unsubscribed user, it is dropped.
+        if (!isSubscribedUser(sourceMAC)) {
+            logger.info("The packet comes from an unsubscribed user. Dropping the packet.");
+            return true;
+        }
+
+        /* If the packet is coming from a subscribed user and it is transiting through the network,
+        it passed a previous filtering done by an access switch.
+        */
+        if (!isAccessSwitch(sw.getId())) {
+            logger.info("The packet comes from a subscribed user and it is " +
+                                "transiting through the network. Accepting the packet.");
+            return false;
+        }
+
+        // The packet is coming from a subscribed user and it is transiting through an access switch.
+        IPacket packet = ethernetFrame.getPayload();
+
+        // If the packet is an ARP request, it is allowed only if it targets the virtual IP.
+        if ((ethernetFrame.isBroadcast() || ethernetFrame.isMulticast()) && packet instanceof ARP) {
+            ARP arpRequest = (ARP) packet;
+
+            if (arpRequest.getTargetProtocolAddress().compareTo(SERVICE_IP) != 0) {
+                logger.info("The packet is an ARP request coming from the client and not addressed " +
+                                    "to the service. Dropping the packet.");
+                return true;
+            }
+
+            logger.info("The packet is an ARP request coming from the client and addressed " +
+                                "to the service. Accepting the packet.");
+            return false;
+        }
+
+        // If the packet is an IP request, check if IP or MAC destination addresses are virtual.
+        if (packet instanceof IPv4) {
+            IPv4 ipPacket = (IPv4) packet;
+
+            if (!isServiceAddress(destinationMAC, ipPacket.getDestinationAddress())) {
+                logger.info("The packet is an IP request coming from the client and not addressed " +
+                                    "to the service. Dropping the packet.");
+                return true;
+            }
+
+            logger.info("The packet is an IP request coming from the client and addressed " +
+                                "to the service. Accepting the packet.");
+            return false;
+        }
+
+        logger.info("The packet is neither an ARP request nor an IP packet. Dropping the packet.");
+        return true;
     }
 
     @Override
@@ -674,19 +620,19 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         Ethernet ethernetFrame = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
         IPacket packet = ethernetFrame.getPayload();
 
-        if (dropPacket()) // TODO: substitute with implemented method.
+        if (dropPacket(sw, ethernetFrame))
             return Command.STOP;
 
-        // Packet is allowed.
         if (packet instanceof ARP) {
+            ARP arpRequest = (ARP) packet;
             logger.debug("ARP request"); // TODO: remove/rewrite
-            return Command.STOP;
+            return handleArpRequest(sw, packetIn, ethernetFrame, arpRequest);
         }
 
         if (packet instanceof IPv4) {
             IPv4 ipPacket = (IPv4) packet;
             logger.debug("IP request"); // TODO: remove/rewrite
-            return handleIPPacket(sw, packetIn, ethernetFrame, ipPacket);
+            return handleIpPacket(sw, packetIn, ethernetFrame, ipPacket);
         }
 
         logger.debug("Skipped"); // TODO:remove
@@ -745,9 +691,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:03"));
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:05"));
 
-        // added for test
-        subscribedUser.put("antonio", MacAddress.of("00:00:00:00:00:01"));
-        subscribedUser.put("giuseppe", MacAddress.of("00:00:00:00:00:04"));
+        subscribedUsers.add(new MobilityUser("antonio", MacAddress.of("00:00:00:00:00:01")));
+        subscribedUsers.add(new MobilityUser("giuseppe", MacAddress.of("00:00:00:00:00:02")));
+        subscribedUsers.add(new MobilityUser("john doe", MacAddress.of("00:00:00:00:00:03")));
     }
 
     @Override
