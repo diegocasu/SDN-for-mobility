@@ -75,7 +75,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         the method installs a default rule on the specified switch with a priority higher than one,
         so that the rules installed by the Forwarding module are ignored.
         */
-        IOFSwitch targetSwitch = switchService.getSwitch(switchDPID);
+        IOFSwitchBackend targetSwitch = (IOFSwitchBackend) switchService.getSwitch(switchDPID);
 
         if (targetSwitch == null) {
             logger.error("Cannot modify the priority of the default rule of switch " + switchDPID +
@@ -83,28 +83,32 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
             return;
         }
 
-        // Remove the default rules.
-        OFFlowDeleteStrict deleteFlow = targetSwitch.getOFFactory().buildFlowDeleteStrict()
+        // Remove the default rule in each table.
+        OFFlowDeleteStrict deleteDefaultRule = targetSwitch.getOFFactory().buildFlowDeleteStrict()
                 .setTableId(TableId.ALL)
                 .setOutPort(OFPort.CONTROLLER)
                 .build();
-        targetSwitch.write(deleteFlow);
+        targetSwitch.write(deleteDefaultRule);
 
-        ArrayList<OFAction> actions = new ArrayList<>();
-        actions.add(targetSwitch.getOFFactory().actions().output(OFPort.CONTROLLER, 0xffFFffFF));
-
-        /* Since the pipelining between tables is never used, it is possible to insert
-        only one default rule in the first table.
+        /* Insert a new default rule in each table. The insertion is done only in the tables
+        that are effectively used by the switch, which is given by getMaxTableForTableMissFlow().
         */
-        OFFlowAdd defaultFlow = targetSwitch.getOFFactory().buildFlowAdd()
-                .setTableId(TableId.of(0))
-                .setPriority(ACCESS_SWITCH_DEFAULT_RULE_PRIORITY)
-                .setActions(actions)
-                .build();
+        ArrayList<OFAction> outputToController = new ArrayList<>(1);
+        ArrayList<OFMessage> addDefaultRules = new ArrayList<>();
+        outputToController.add(targetSwitch.getOFFactory().actions().output(OFPort.CONTROLLER, 0xffFFffFF));
 
-        targetSwitch.write(defaultFlow);
+        for (int tableId = 0; tableId <= targetSwitch.getMaxTableForTableMissFlow().getValue(); tableId++) {
+            OFFlowAdd addDefaultRule = targetSwitch.getOFFactory().buildFlowAdd()
+                    .setTableId(TableId.of(tableId))
+                    .setPriority(ACCESS_SWITCH_DEFAULT_RULE_PRIORITY)
+                    .setActions(outputToController)
+                    .build();
+            addDefaultRules.add(addDefaultRule);
+        }
+        targetSwitch.write(addDefaultRules);
+
         logger.info("The priority of the default rule of switch " + switchDPID +
-                " has been increased to 10.");
+                            " has been increased to " + ACCESS_SWITCH_DEFAULT_RULE_PRIORITY);
     }
 
     private boolean isAccessSwitch(DatapathId sw) {
