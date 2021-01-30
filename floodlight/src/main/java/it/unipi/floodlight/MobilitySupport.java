@@ -28,7 +28,7 @@ import java.util.*;
 public class MobilitySupport implements IFloodlightModule, IOFMessageListener, IMobilitySupportREST {
     protected static Logger logger = LoggerFactory.getLogger(MobilitySupport.class);
     protected IFloodlightProviderService floodlightProvider;
-    protected IRestApiService restApiService; // Reference to the Rest API service
+    protected IRestApiService restApiService; //Reference to the Rest API service
 
     // Default virtual IP and MAC addresses of the service.
     private IPv4Address SERVICE_IP = IPv4Address.of("8.8.8.8");
@@ -138,24 +138,31 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     		// This resource will show the list of subscribed users
 	        router.attach("/getusers/json", GetUserList.class);
 	        // This resource will insert a given user
+	        // Json parameters: "username","MAC"
 	        router.attach("/insertuser/json", InsertUser.class);
 	        // This resource will remove a given user
+	        // Json parameters: "username"
 	        router.attach("/removeuser/json", RemoveUser.class);
 	        // This resource will show Server Virtual IP and MAC Address
 	        router.attach("/getserveraddress/json", GetVirtualAddress.class);
 	        // This resource will set Server Virtual IP and MAC Address
+	        // Json parameters: "ipv4","MAC"
 	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
 	        // This resource will show the list of servers providing the service
 	        router.attach("/getservers/json", GetServers.class);
-	        // This resource will add a given server to the list o available servers
+	        // This resource will add a given server to the list of available servers
+	        // Json parameters: "ipv4","MAC"
 	        router.attach("/addserver/json", AddServer.class);
-	        // This resource will remove a given server to the list o available servers
+	        // This resource will remove a given server to the list of available servers
+	        // Json parameters: "ipv4"
 	        router.attach("/removeserver/json", RemoveServer.class);
 	        // This resource will show the list of access switches
 	        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
 	        // This resource will add a given switch to the list of access switches
+	        // Json parameters: "dpid"
 	        router.attach("/addaccessswitch/json", AddAccessSwitch.class);
 	        // This resource will add a given switch to the list of access switches
+	        // Json parameters: "dpid"
 	        router.attach("/removeaccessswitch/json", RemoveAccessSwitch.class);
     		
 			return router;
@@ -177,7 +184,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 		for (Map.Entry me : subscribedUsers.entrySet()){
 	    	list.put((String)me.getKey(),me.getValue().toString());
 	    }
-	
+		logger.info("----> The list of subscribed users is provided");
 		return list;
     }
     
@@ -185,14 +192,19 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public String subscribeUser(String username, MacAddress MAC){
     	//check if user is already subscribed or if the username is already present.
     	for (Map.Entry me : subscribedUsers.entrySet()){
-    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString()))
+    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString())){
+    			logger.info("----> The user is already subscribed");
     			return new String("User already subscribed");
-    		if(((String)me.getKey()).equals(username))
+    		}
+    		if(((String)me.getKey()).equals(username)){
+    			logger.info("----> The username is already in use");
     			return new String("Username already in use");
+    		}	
 	    }
     	//insert new user
     	subscribedUsers.put(username,MAC);
     	
+    	logger.info("----> The user is registered");
     	return "Subscription Successful";
     }
     
@@ -202,9 +214,11 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	for (Map.Entry me : subscribedUsers.entrySet()){
     		if(((String)me.getKey()).equals(username)){
     			subscribedUsers.remove(username);
+    			logger.info("----> The user is removed");
     			return new String("User Removed");
     		}		
 	    }
+    	logger.info("----> The username is not present");
     	return new String("Username not present");
     }
     
@@ -215,6 +229,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 		info.put("MAC:", SERVICE_MAC.toString());
 		info.put("IPv4:", SERVICE_IP.toString());
 		
+		logger.info("----> The Virtual IP and MAC are provided");
 		return info;
     }
     
@@ -224,6 +239,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	SERVICE_IP=ipv4;
     	SERVICE_MAC=MAC;
     	
+    	logger.info("----> The Virtual address is updated");
     	return "Virtual Address Updated";
     }
     
@@ -234,7 +250,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 		for (Map.Entry me : server.entrySet()){
 	    	list.put(me.getKey().toString(),me.getValue().toString());
 	    }
-	
+		
+		logger.info("----> The list of servers is provided");
 		return list;
     } 
     
@@ -242,14 +259,20 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public String addServer(IPv4Address ipv4, MacAddress MAC){
     	//check if server is already present.
     	for (Map.Entry me : server.entrySet()){
-    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString()))
+    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString())){
+    			logger.info("----> The server MAC Address is already present");
     			return new String("MAC Address Already Present");
-    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString()))
+    		}	
+    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
+    			logger.info("----> The server IP is already present");
     			return new String("IPv4 Already Present");
+    		}	
 	    }
+    	
     	//insert new user
     	server.put(ipv4,MAC);
     	
+    	logger.info("----> The server has been added");
     	return "Server Added";
     }
     
@@ -259,9 +282,13 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	for (Map.Entry me : server.entrySet()){
     		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
     			server.remove(ipv4);
+    			
+    			logger.info("----> The server is been removed");
     			return new String("Server Removed");
     		}		
 	    }
+    	
+    	logger.info("----> The server is not present");
     	return new String("Server not present");
     }
     
@@ -273,6 +300,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 	    	list.add(dpid.toString());
 	    }
 	
+		logger.info("----> The list of access switches is provided");
 		return list;
     }
     
@@ -280,13 +308,16 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public String addAccessSwitch(DatapathId dpid){
     	//check if switch is already present.
     	for (DatapathId sdpid : accessSwitch){
-	    	if(sdpid.toString().equals(dpid.toString()))
+	    	if(sdpid.toString().equals(dpid.toString())){
+	    		logger.info("----> The switch dpid is already present");
 	    		return new String("Switch Already Present");
+	    	}
 	    }
     	
     	//insert new access switch
     	accessSwitch.add(dpid);
     	
+    	logger.info("----> The access switch is been added");
     	return "Access Switch Added";
     }
     
@@ -296,9 +327,11 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     	for (DatapathId sdpid : accessSwitch){
     		if(sdpid.toString().equals(dpid.toString())){
     			accessSwitch.remove(dpid);
+    			logger.info("----> The access switch is removed");
     			return new String("Access Switch Removed");
     		}		
 	    }
+    	logger.info("----> The access switch is not present in the list");
     	return new String("Access Switch not present");
     }
 }
