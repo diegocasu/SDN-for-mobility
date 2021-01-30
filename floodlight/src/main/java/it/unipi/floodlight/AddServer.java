@@ -28,14 +28,13 @@ public class AddServer extends ServerResource{
 			// Get the field ipv4
 			IPv4Address ipv4;
 			try{
-				// Get the field MAC
 				ipv4=IPv4Address.of(root.get("ipv4").asText());
 			}catch(Exception me){
 				return new String("Invalid IPv4 Address format");
 			}
+			// Get the field MAC
 			MacAddress MAC;
 			try{
-				// Get the field MAC
 				MAC=MacAddress.of(root.get("MAC").asText());
 			}catch(Exception me){
 				return new String("Invalid MAC Address format");

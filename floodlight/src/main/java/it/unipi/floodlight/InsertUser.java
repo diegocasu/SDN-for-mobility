@@ -26,9 +26,9 @@ public class InsertUser extends ServerResource{
 			
 			// Get the field username
 			String username = root.get("username").asText();
+			// Get the field MAC
 			MacAddress MAC;
 			try{
-				// Get the field MAC
 				MAC=MacAddress.of(root.get("MAC").asText());
 			}catch(Exception me){
 				return new String("Invalid MAC Address format");

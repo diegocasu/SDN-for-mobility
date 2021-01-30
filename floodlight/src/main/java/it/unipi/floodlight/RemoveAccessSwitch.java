@@ -25,7 +25,7 @@ public class RemoveAccessSwitch extends ServerResource{
 			
 			JsonNode root = mapper.readTree(fmJson);
 			
-			// Get the field ipv4
+			// Get the field dpid
 			DatapathId dpid;
 			try{
 				dpid=DatapathId.of(root.get("dpid").asText());

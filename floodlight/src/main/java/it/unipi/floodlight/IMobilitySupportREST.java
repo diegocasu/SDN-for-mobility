@@ -31,7 +31,7 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	//It show the list of servers
 	public Map<String, Object> getServers();
 	
-	//It subscribe a given user to the service.
+	//It add a given server to the list of available servers
 	public String addServer(IPv4Address ipv4, MacAddress MAC);
 	
 	//It remove a given server from the list of available servers 
@@ -40,9 +40,9 @@ public interface IMobilitySupportREST extends IFloodlightService{
 	//It returns the list of access switches
 	public Set<String> getAccessSwitches();
 	
-	//It subscribe a given user to the service.
+	//It add a given switch to the list of access switches
 	public String addAccessSwitch(DatapathId dpid);
 	
-	//It subscribe a given user to the service.
+	//It remove a given switch to the list of access switches
 	public String removeAccessSwitch(DatapathId dpid);
 }
