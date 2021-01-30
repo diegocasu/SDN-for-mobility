@@ -19,13 +19,10 @@ def topology():
 
     info("*** Adding access points\n")
     ap1 = net.addAccessPoint("ap1", cls=OVSBridgeAP, ssid="ssid-ap1", client_isolation=True,
-                             mac="00:00:00:00:AC:01", dpid="00:00:00:00:00:00:AC:01",
                              channel="1", position="15,30,0", protocols="OpenFlow13")
     ap2 = net.addAccessPoint("ap2", cls=OVSBridgeAP, ssid="ssid-ap2", client_isolation=True,
-                             mac="00:00:00:00:AC:02", dpid="00:00:00:00:00:00:AC:02",
                              channel="6", position="55,30,0", protocols="OpenFlow13")
     ap3 = net.addAccessPoint("ap3", cls=OVSBridgeAP, ssid="ssid-ap3", client_isolation=True,
-                             mac="00:00:00:00:AC:03", dpid="00:00:00:00:00:00:AC:03",
                              channel="1", position="95,30,0", protocols="OpenFlow13")
 
     info("*** Adding stations\n")
