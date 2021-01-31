@@ -1,5 +1,6 @@
 package it.unipi.floodlight;
 
+import it.unipi.floodlight.rest.*;
 import net.floodlightcontroller.core.*;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
 import net.floodlightcontroller.core.module.*;
@@ -9,7 +10,6 @@ import net.floodlightcontroller.routing.*;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.*;
 import net.floodlightcontroller.restserver.IRestApiService;
-import net.floodlightcontroller.restserver.RestletRoutable;
 
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.projectfloodlight.openflow.protocol.*;
@@ -17,9 +17,6 @@ import org.projectfloodlight.openflow.protocol.action.*;
 import org.projectfloodlight.openflow.protocol.match.*;
 import org.projectfloodlight.openflow.protocol.oxm.*;
 import org.projectfloodlight.openflow.types.*;
-import org.restlet.Context;
-import org.restlet.Restlet;
-import org.restlet.routing.Router;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +26,8 @@ import java.util.*;
 
 public class MobilitySupport implements IFloodlightModule, IOFMessageListener, IMobilitySupportREST {
     private final Logger logger = LoggerFactory.getLogger(MobilitySupport.class);
+    private final Logger loggerREST = LoggerFactory.getLogger(IMobilitySupportREST.class);
+
     private IFloodlightProviderService floodlightProvider;
     private IOFSwitchService switchService;
     private IDeviceService deviceService;
@@ -40,7 +39,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private MacAddress SERVICE_MAC = MacAddress.of("FE:FE:FE:FE:FE:FE");
 
     // Subscribed users.
-    private Map<MacAddress, String> subscribedUsers = new HashMap<>();
+    private final Map<MacAddress, String> subscribedUsers = new HashMap<>();
 
     // Servers implementing the service.
     private final Map<MacAddress, MutablePair<IPv4Address, BigInteger>> servers = new HashMap<>();
@@ -52,7 +51,11 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private final int IDLE_TIMEOUT = 10;
     private final int HARD_TIMEOUT = 20;
 
-    // Priority of the default rule of an access switch (must be higher than 1).
+    /* The default rule of a switch is to forward a packet to the controller.
+    The default rule of an access switch must have a priority higher than one,
+    so that the rules installed by the Forwarding module are ignored and the translation
+    from/to the virtual address is not skipped.
+    */
     private final int ACCESS_SWITCH_DEFAULT_RULE_PRIORITY = 10;
 
 
@@ -77,18 +80,13 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
     }
 
-    private void increasePriorityOfDefaultRule(DatapathId switchDPID) {
-        /* By default, a switch sends a packet to the controller, if it has no matching rules
-        for the packet. Given that the Forwarding module installs rules with priority one,
-        the method installs a default rule on the specified switch with a priority higher than one,
-        so that the rules installed by the Forwarding module are ignored.
-        */
+    private boolean changePriorityOfDefaultRule(DatapathId switchDPID, int priority) {
         IOFSwitchBackend targetSwitch = (IOFSwitchBackend) switchService.getSwitch(switchDPID);
 
         if (targetSwitch == null) {
             logger.error("Cannot modify the priority of the default rule of switch " + switchDPID +
-                         ". The switch is not connected");
-            return;
+                         ". The switch is not connected to the network");
+            return false;
         }
 
         // Remove the default rule in each table.
@@ -99,7 +97,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         targetSwitch.write(deleteDefaultRule);
 
         /* Insert a new default rule in each table. The insertion is done only in the tables
-        that are effectively used by the switch, which is given by getMaxTableForTableMissFlow().
+        that are effectively used by the switch, which is told by getMaxTableForTableMissFlow().
         */
         ArrayList<OFAction> outputToController = new ArrayList<>(1);
         ArrayList<OFMessage> addDefaultRules = new ArrayList<>();
@@ -108,7 +106,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         for (int tableId = 0; tableId <= targetSwitch.getMaxTableForTableMissFlow().getValue(); tableId++) {
             OFFlowAdd addDefaultRule = targetSwitch.getOFFactory().buildFlowAdd()
                     .setTableId(TableId.of(tableId))
-                    .setPriority(ACCESS_SWITCH_DEFAULT_RULE_PRIORITY)
+                    .setPriority(priority)
                     .setActions(outputToController)
                     .build();
             addDefaultRules.add(addDefaultRule);
@@ -116,7 +114,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         targetSwitch.write(addDefaultRules);
 
         logger.info("The priority of the default rule of switch " + switchDPID +
-                            " has been increased to " + ACCESS_SWITCH_DEFAULT_RULE_PRIORITY);
+                            " has been increased to " + priority);
+        return true;
     }
 
     private boolean isAccessSwitch(DatapathId sw) {
@@ -649,10 +648,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
         logger.debug("Entering receive()"); // TODO:remove
 
-        // TODO: move inside "insertAccessSwitch" when REST interfaces is ready.
-        for (DatapathId accessSwitch : accessSwitches)
-            increasePriorityOfDefaultRule(accessSwitch);
-
         OFPacketIn packetIn = (OFPacketIn) msg;
         Ethernet ethernetFrame = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
         IPacket packet = ethernetFrame.getPayload();
@@ -717,244 +712,192 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         deviceService = context.getServiceImpl(IDeviceService.class);
         switchService = context.getServiceImpl(IOFSwitchService.class);
         restApiService = context.getServiceImpl(IRestApiService.class);
-
-        // TODO: remove and let the values be initialized by the REST interface.
-        servers.put(MacAddress.of("00:00:00:00:01:01"),
-                    new MutablePair<>(IPv4Address.of("10.0.1.1"), new BigInteger("0")));
-
-        servers.put(MacAddress.of("00:00:00:00:01:02"),
-                    new MutablePair<>(IPv4Address.of("10.0.1.2"), new BigInteger("0")));
-
-        servers.put(MacAddress.of("00:00:00:00:01:03"),
-                    new MutablePair<>(IPv4Address.of("10.0.1.3"), new BigInteger("0")));
-
-        accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:01"));
-        accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:03"));
-        accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:05"));
-
-        subscribedUsers.put(MacAddress.of("00:00:00:00:00:01"), "antonio");
-        subscribedUsers.put(MacAddress.of("00:00:00:00:00:02"), "giuseppe");
-        subscribedUsers.put(MacAddress.of("00:00:00:00:00:03"), "john doe");
     }
 
     @Override
     public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
 
-        // Add as REST interface the one defined in the LoadBalancerWebRoutable class
+        // Add as REST interface the one defined in the MobilitySupportWebRoutable class.
      	restApiService.addRestletRoutable(new MobilitySupportWebRoutable());
     }
 
-    /**
-	 * Class to define the rest interface
-	 */
-
-    public class MobilitySupportWebRoutable implements RestletRoutable {
-	    /**
-	     * Create the Restlet router and bind to the proper resources.
-	     */
-    	@Override
-		public Restlet getRestlet(Context context) {
-
-    		Router router = new Router(context);
-
-    		// This resource will show the list of subscribed users
-	        router.attach("/getusers/json", GetUserList.class);
-	        // This resource will insert a given user
-	        // Json parameters: "username","MAC"
-	        router.attach("/insertuser/json", InsertUser.class);
-	        // This resource will remove a given user
-	        // Json parameters: "username"
-	        router.attach("/removeuser/json", RemoveUser.class);
-	        // This resource will show Server Virtual IP and MAC Address
-	        router.attach("/getserveraddress/json", GetVirtualAddress.class);
-	        // This resource will set Server Virtual IP and MAC Address
-	        // Json parameters: "ipv4","MAC"
-	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
-	        // This resource will show the list of servers providing the service
-	        router.attach("/getservers/json", GetServers.class);
-	        // This resource will add a given server to the list of available servers
-	        // Json parameters: "ipv4","MAC"
-	        router.attach("/addserver/json", AddServer.class);
-	        // This resource will remove a given server to the list of available servers
-	        // Json parameters: "ipv4"
-	        router.attach("/removeserver/json", RemoveServer.class);
-	        // This resource will show the list of access switches
-	        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
-	        // This resource will add a given switch to the list of access switches
-	        // Json parameters: "dpid"
-	        router.attach("/addaccessswitch/json", AddAccessSwitch.class);
-	        // This resource will add a given switch to the list of access switches
-	        // Json parameters: "dpid"
-	        router.attach("/removeaccessswitch/json", RemoveAccessSwitch.class);
-
-			return router;
-		}
-
-	    /**
-	     * Set the base path for the Topology
-	     */
-	    @Override
-	    public String basePath() {
-	        return "/ms";
-	    }
-	}
-
     @Override
-    public Map<String, Object> getSubscribedUsers(){
-    	Map<String, Object> list = new HashMap<String, Object>();
+    public Map<String, Object> getSubscribedUsers() {
+    	Map<String, Object> list = new HashMap<>();
 
-		for (Map.Entry me : subscribedUsers.entrySet()){
-	    	list.put((String)me.getKey(),me.getValue().toString());
+		for (Map.Entry<MacAddress, String> user : subscribedUsers.entrySet()) {
+            list.put(user.getKey().toString(), user.getValue());
 	    }
-		logger.info("----> The list of subscribed users is provided");
+
+		loggerREST.info("The list of subscribed users has been provided.");
 		return list;
     }
 
     @Override
-    public String subscribeUser(String username, MacAddress MAC){
-    	//check if user is already subscribed or if the username is already present.
-    	for (Map.Entry me : subscribedUsers.entrySet()){
-    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString())){
-    			logger.info("----> The user is already subscribed");
-    			return new String("User already subscribed");
-    		}
-    		if(((String)me.getKey()).equals(username)){
-    			logger.info("----> The username is already in use");
-    			return new String("Username already in use");
-    		}
-	    }
-    	//insert new user
-    	subscribedUsers.put(username,MAC);
+    public String subscribeUser(String username, MacAddress MAC) {
+        loggerREST.info("Received request for the subscription of {}, with username \"{}\".",
+                        MAC, username);
 
-    	logger.info("----> The user is registered");
-    	return "Subscription Successful";
+    	// Check if MAC address is already subscribed.
+        if (subscribedUsers.containsKey(MAC)) {
+            loggerREST.info("The MAC address {} is already subscribed.", MAC);
+            return "MAC address already subscribed";
+        }
+
+        // Check if the username is already present.
+        if (subscribedUsers.containsValue(username)) {
+            loggerREST.info("The username \"{}\" is already in use.", username);
+            return "Username already in use";
+        }
+
+        // Add user to the list of subscribed users.
+        subscribedUsers.put(MAC, username);
+
+        loggerREST.info("Registered user {} with username \"{}\".", MAC, username);
+        return "Subscription successful";
     }
 
     @Override
-    public String removeUser(String username){
-    	//check if the user is subscribed
-    	for (Map.Entry me : subscribedUsers.entrySet()){
-    		if(((String)me.getKey()).equals(username)){
-    			subscribedUsers.remove(username);
-    			logger.info("----> The user is removed");
-    			return new String("User Removed");
-    		}
-	    }
-    	logger.info("----> The username is not present");
-    	return new String("Username not present");
+    public String removeUser(String username) {
+        loggerREST.info("Received request for the cancellation of the user \"{}\".", username);
+
+    	// Check if the user is subscribed.
+    	for (Map.Entry<MacAddress, String> user : subscribedUsers.entrySet()) {
+            if (user.getValue().equals(username)) {
+                loggerREST.info("Removed user {} with username \"{}\".", user.getKey(), username);
+                subscribedUsers.remove(user.getKey());
+                return "User removed";
+            }
+        }
+
+        loggerREST.info("Impossible to remove the user \"{}\": the username is not present.", username);
+    	return "Username not found";
     }
 
     @Override
-    public Map<String, Object> getVirtualAddress(){
-    	Map<String, Object> info = new HashMap<String, Object>();
+    public Map<String, Object> getVirtualAddress() {
+    	Map<String, Object> info = new HashMap<>();
 
-		info.put("MAC:", SERVICE_MAC.toString());
-		info.put("IPv4:", SERVICE_IP.toString());
+		info.put("MAC address:", SERVICE_MAC.toString());
+		info.put("IPv4 address:", SERVICE_IP.toString());
 
-		logger.info("----> The Virtual IP and MAC are provided");
+        loggerREST.info("The virtual address of the service has been provided.");
 		return info;
     }
 
     @Override
-    public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC){
-    	//update virtual address
-    	SERVICE_IP=ipv4;
-    	SERVICE_MAC=MAC;
+    public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC) {
+    	// Update virtual address
+    	SERVICE_IP = ipv4;
+    	SERVICE_MAC = MAC;
 
-    	logger.info("----> The Virtual address is updated");
-    	return "Virtual Address Updated";
+        loggerREST.info("The virtual address of the service has been updated to {}, {}",
+                        SERVICE_MAC, SERVICE_IP);
+    	return "Virtual address updated";
     }
 
     @Override
-    public Map<String, Object> getServers(){
-    	Map<String, Object> list = new HashMap<String, Object>();
+    public Map<String, Object> getServers() {
+    	Map<String, Object> list = new HashMap<>();
 
-		for (Map.Entry me : server.entrySet()){
-	    	list.put(me.getKey().toString(),me.getValue().toString());
+		for (Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server : servers.entrySet()) {
+	    	list.put(server.getKey().toString(), server.getValue().getLeft().toString());
 	    }
 
-		logger.info("----> The list of servers is provided");
+		loggerREST.info("The list of servers has been provided.");
 		return list;
     }
 
     @Override
-    public String addServer(IPv4Address ipv4, MacAddress MAC){
-    	//check if server is already present.
-    	for (Map.Entry me : server.entrySet()){
-    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString())){
-    			logger.info("----> The server MAC Address is already present");
-    			return new String("MAC Address Already Present");
-    		}
-    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
-    			logger.info("----> The server IP is already present");
-    			return new String("IPv4 Already Present");
-    		}
-	    }
+    public String addServer(IPv4Address ipv4, MacAddress MAC) {
+        loggerREST.info("Received request for the insertion of server {}, {}", MAC, ipv4);
 
-    	//insert new user
-    	server.put(ipv4,MAC);
+        // Check if the server is already present.
+        for (Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server : servers.entrySet()) {
+            if (server.getKey().equals(MAC)) {
+                loggerREST.info("The MAC address {} is already used by a server.", MAC);
+                return "MAC address already in use";
+            }
+            if (server.getValue().getLeft().equals(ipv4)) {
+                loggerREST.info("The IP address {} is already used by a server.", ipv4);
+                return "IP address already in use";
+            }
+        }
 
-    	logger.info("----> The server has been added");
-    	return "Server Added";
+        servers.put(MAC, new MutablePair<>(ipv4, new BigInteger("0")));
+
+        loggerREST.info("Registered server {}, {}", MAC, ipv4);
+    	return "Server registered";
     }
 
     @Override
-    public String removeServer(IPv4Address ipv4){
-    	//check if the server is present
-    	for (Map.Entry me : server.entrySet()){
-    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
-    			server.remove(ipv4);
+    public String removeServer(IPv4Address ipv4) {
+        loggerREST.info("Received request for the cancellation of the server {}", ipv4);
 
-    			logger.info("----> The server is been removed");
-    			return new String("Server Removed");
-    		}
-	    }
+    	// Check if the server is present.
+        for (Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server : servers.entrySet()) {
+            if (server.getValue().getLeft().equals(ipv4)) {
+                loggerREST.info("Removed server {}, {}", server.getKey(), ipv4);
+                servers.remove(server.getKey());
+                return "Server removed";
+            }
+        }
 
-    	logger.info("----> The server is not present");
-    	return new String("Server not present");
+            loggerREST.info("Impossible to remove the server {}: the server is not present.", ipv4);
+            return "Server not found";
     }
 
     @Override
-    public Set<String> getAccessSwitches(){
-    	Set<String> list = new HashSet<String>();
+    public Set<String> getAccessSwitches() {
+    	Set<String> list = new HashSet<>();
 
-		for (DatapathId dpid : accessSwitch){
+		for (DatapathId dpid : accessSwitches) {
 	    	list.add(dpid.toString());
 	    }
 
-		logger.info("----> The list of access switches is provided");
+        loggerREST.info("The list of access switches has been provided.");
 		return list;
     }
 
     @Override
-    public String addAccessSwitch(DatapathId dpid){
-    	//check if switch is already present.
-    	for (DatapathId sdpid : accessSwitch){
-	    	if(sdpid.toString().equals(dpid.toString())){
-	    		logger.info("----> The switch dpid is already present");
-	    		return new String("Switch Already Present");
-	    	}
-	    }
+    public String addAccessSwitch(DatapathId dpid) {
+        loggerREST.info("Received request for the insertion of the access switch {}", dpid);
 
-    	//insert new access switch
-    	accessSwitch.add(dpid);
+    	// Check if the switch is already present.
+        if (accessSwitches.contains(dpid)) {
+            loggerREST.info("The switch {} is already an access switch.", dpid);
+            return "Already an access switch";
+        }
 
-    	logger.info("----> The access switch is been added");
-    	return "Access Switch Added";
+        boolean success = changePriorityOfDefaultRule(dpid, ACCESS_SWITCH_DEFAULT_RULE_PRIORITY);
+        if (success) {
+            accessSwitches.add(dpid);
+            loggerREST.info("The switch {} is now an access switch.", dpid);
+            return "Access switch added";
+        }
+
+        loggerREST.info("The switch {} is not connected to the network.", dpid);
+        return "Switch not found";
     }
 
     @Override
-    public String removeAccessSwitch(DatapathId dpid){
-    	//check if the access switch is present
-    	for (DatapathId sdpid : accessSwitch){
-    		if(sdpid.toString().equals(dpid.toString())){
-    			accessSwitch.remove(dpid);
-    			logger.info("----> The access switch is removed");
-    			return new String("Access Switch Removed");
-    		}
-	    }
-    	logger.info("----> The access switch is not present in the list");
-    	return new String("Access Switch not present");
+    public String removeAccessSwitch(DatapathId dpid) {
+        loggerREST.info("Received request for the cancellation of the access switch {}", dpid);
+
+        if (accessSwitches.contains(dpid)) {
+            /* It is not necessary to check if the operation on the priority succeeded: if the
+            switch is not connected to the network, its flow table will be flushed at the
+            next handshake with the controller.
+            */
+            changePriorityOfDefaultRule(dpid, 0);
+
+            loggerREST.info("Removed access switch {}", dpid);
+            accessSwitches.remove(dpid);
+            return "Access switch removed";
+        }
+
+        loggerREST.info("The switch {} is not an access switch", dpid);
+    	return "Access switch not found";
     }
 }
