@@ -18,14 +18,16 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
 
         Router router = new Router(context);
 
-        // This resource will show the list of subscribed users
-        router.attach("/getusers/json", GetUserList.class);
-        // This resource will insert a given user
-        // Json parameters: "username","MAC"
-        router.attach("/insertuser/json", InsertUser.class);
-        // This resource will remove a given user
-        // Json parameters: "username"
-        router.attach("/removeuser/json", RemoveUser.class);
+        /**
+         * This resource will manage the subscribedUsers Map.
+         * @GET 	permit to retrieve the list of subscribed users
+         * @POST 	permit to insert a given user
+         * 			@JSON:	"username","MAC"
+         * @DELETE	permit to remove a given user
+         * 			@JSON:	"username"
+         */
+        router.attach("/users/json", Users.class);
+        
         // This resource will show Server Virtual IP and MAC Address
         router.attach("/getserveraddress/json", GetVirtualAddress.class);
         // This resource will set Server Virtual IP and MAC Address
