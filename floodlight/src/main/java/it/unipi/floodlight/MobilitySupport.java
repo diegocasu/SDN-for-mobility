@@ -8,15 +8,16 @@ import net.floodlightcontroller.packet.*;
 import net.floodlightcontroller.routing.*;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.*;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.action.*;
 import org.projectfloodlight.openflow.protocol.match.*;
 import org.projectfloodlight.openflow.protocol.oxm.*;
 import org.projectfloodlight.openflow.types.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigInteger;
 import java.util.*;
 
 
@@ -32,10 +33,10 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
     private MacAddress SERVICE_MAC =  MacAddress.of("FE:FE:FE:FE:FE:FE");
 
     // Subscribed users.
-    private final Set<MobilityUser> subscribedUsers = new HashSet<>();
+    private Map<MacAddress, String> subscribedUsers = new HashMap<>();
 
     // Servers implementing the service.
-    private final Set<MobilityServer> servers = new HashSet<>();
+    private final Map<MacAddress, MutablePair<IPv4Address, BigInteger>> servers = new HashMap<>();
 
     // Access switches.
     private final Set<DatapathId> accessSwitches = new HashSet<>();
@@ -120,18 +121,35 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         return (addressMAC.compareTo(SERVICE_MAC) == 0) && (addressIP.compareTo(SERVICE_IP) == 0);
     }
 
-    private boolean isServerAddress(MacAddress addressMAC, IPv4Address addressIP) {
-        /* Check if the given (MAC address, IP address) couple identifies a server.
-        If addressIP is null, the comparison is done using only addressMAC.
-        */
-        return servers.contains(new MobilityServer(addressMAC, addressIP));
+    private boolean isServerMacAddress(MacAddress address) {
+        // Check if the given MAC address identifies a server.
+        return servers.containsKey(address);
     }
 
-    private boolean isSubscribedUser(MacAddress addressMAC) {
-        /* Check if the given MAC address identifies a subscribed server.
-        Giving a null username, the comparison is done using only addressMAC.
+    private boolean isServerCompleteAddress(MacAddress addressMAC, IPv4Address addressIP) {
+        // Check if the given (MAC address, IP address) couple identifies a server.
+        return servers.containsKey(addressMAC) && servers.get(addressMAC).getLeft().equals(addressIP);
+
+    }
+
+    private boolean isSubscribedUser(MacAddress address) {
+        // Check if the given MAC address identifies a subscribed server.
+        return subscribedUsers.containsKey(address);
+    }
+
+    private int compareTranslations(Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server1,
+                                    Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server2) {
+        /* Returns -1, 0 or 1 as the number of translations of server1 is numerically
+        less than, equal to, or greater than the the number of translations of server2.
         */
-        return subscribedUsers.contains(new MobilityUser(null, addressMAC));
+        BigInteger translationsServer1 = server1.getValue().getRight();
+        BigInteger translationsServer2 = server2.getValue().getRight();
+
+        return translationsServer1.compareTo(translationsServer2);
+    }
+
+    private void incrementTranslations(Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server) {
+        server.getValue().setRight(server.getValue().getRight().add(BigInteger.ONE));
     }
 
     private Set<SwitchPort> getSwitchesAttachedToDevice(MacAddress deviceMAC) {
@@ -373,12 +391,13 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
     }
 
     private void handleRequestToService(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, IPv4 ipPacket) {
-        MobilityServer closestServer = null;
+        Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> closestServer = null;
         Route shortestPath = null;
 
-        for (MobilityServer candidateClosestServer : servers) {
+        for (Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> candidateClosestServer
+                : servers.entrySet()) {
 
-            Set<SwitchPort> attachedSwitches = getSwitchesAttachedToDevice(candidateClosestServer.getServerMAC());
+            Set<SwitchPort> attachedSwitches = getSwitchesAttachedToDevice(candidateClosestServer.getKey());
             if (attachedSwitches == null)
                 continue;
 
@@ -392,8 +411,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
                 shortestPath = candidateShortestPath;
             }
             else if (candidateShortestPath.compareTo(shortestPath) == 0 &&
-                     closestServer.hasMoreTranslations(candidateClosestServer)) {
-                // Load balance the translation between servers.
+                      compareTranslations(closestServer, candidateClosestServer) > 0 ) {
+                // If two servers can be reached with paths of equal cost, load balance the translation.
                 closestServer = candidateClosestServer;
                 shortestPath = candidateShortestPath;
             }
@@ -406,18 +425,25 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
 
         // The output port of the current switch is specified by the second element of the path.
         OFPort outputPort = shortestPath.getPath().get(1).getPortId();
-        closestServer.incrementTranslations();
+        incrementTranslations(closestServer);
 
         logger.debug("Path towards " + closestServer); // TODO: remove
         for (NodePortTuple pathNode : shortestPath.getPath()) //TODO: remove
             logger.debug("Node: " + pathNode.getNodeId() + " Port: " + pathNode.getPortId()); // TODO: remove
 
-        logger.info("Chosen server for the translation: " + closestServer);
+        logger.info("Chosen server for the translation: {}, {}, number of translations = {}",
+                    new Object[]{
+                            closestServer.getKey(),
+                            closestServer.getValue().getLeft(),
+                            closestServer.getValue().getRight()
+                    });
+
+
         logger.info("Output port towards the shortest path: " + outputPort);
 
         instructSwitchWhenRequestToService(sw, packetIn, ethernetFrame, ipPacket,
-                                           closestServer.getServerMAC(),
-                                           closestServer.getServerIP(),
+                                           closestServer.getKey(),
+                                           closestServer.getValue().getLeft(),
                                            outputPort);
         logger.info("Packet-out and flow mod correctly sent to the switch.");
     }
@@ -442,7 +468,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         }
 
         // The packet is a response from the service to a user.
-        if (isAccessSwitch(sw.getId()) && isServerAddress(sourceMAC, sourceIP)) {
+        if (isAccessSwitch(sw.getId()) && isServerCompleteAddress(sourceMAC, sourceIP)) {
             logger.info("The packet is a response from the service transiting through an access switch.");
             logger.info("Handling the translation of the source address.");
             handleResponseFromServer(sw, packetIn, ethernetFrame, ipPacket);
@@ -555,7 +581,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         logger.info("Received a packet from " + sourceMAC + " with destination " + destinationMAC);
 
         // If the packet comes from a server, it is always accepted.
-        if (isServerAddress(sourceMAC, null)) {
+        if (isServerMacAddress(sourceMAC)) {
             logger.info("The packet comes from a server. Accepting the packet.");
             return false;
         }
@@ -678,26 +704,22 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         switchService = context.getServiceImpl(IOFSwitchService.class);
 
         // TODO: remove and let the values be initialized by the REST interface.
-        MobilityServer server1 = new MobilityServer(MacAddress.of("00:00:00:00:01:01"),
-                                                    IPv4Address.of("10.0.1.1"));
+        servers.put(MacAddress.of("00:00:00:00:01:01"),
+                    new MutablePair<>(IPv4Address.of("10.0.1.1"), new BigInteger("0")));
 
-        MobilityServer server2 = new MobilityServer(MacAddress.of("00:00:00:00:01:02"),
-                                                    IPv4Address.of("10.0.1.2"));
+        servers.put(MacAddress.of("00:00:00:00:01:02"),
+                    new MutablePair<>(IPv4Address.of("10.0.1.2"), new BigInteger("0")));
 
-        MobilityServer server3 = new MobilityServer(MacAddress.of("00:00:00:00:01:03"),
-                                                    IPv4Address.of("10.0.1.3"));
-
-        servers.add(server1);
-        servers.add(server2);
-        servers.add(server3);
+        servers.put(MacAddress.of("00:00:00:00:01:03"),
+                    new MutablePair<>(IPv4Address.of("10.0.1.3"), new BigInteger("0")));
 
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:01"));
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:03"));
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:00:05"));
 
-        subscribedUsers.add(new MobilityUser("antonio", MacAddress.of("00:00:00:00:00:01")));
-        subscribedUsers.add(new MobilityUser("giuseppe", MacAddress.of("00:00:00:00:00:02")));
-        subscribedUsers.add(new MobilityUser("john doe", MacAddress.of("00:00:00:00:00:03")));
+        subscribedUsers.put(MacAddress.of("00:00:00:00:00:01"), "antonio");
+        subscribedUsers.put(MacAddress.of("00:00:00:00:00:02"), "giuseppe");
+        subscribedUsers.put(MacAddress.of("00:00:00:00:00:03"), "john doe");
     }
 
     @Override
