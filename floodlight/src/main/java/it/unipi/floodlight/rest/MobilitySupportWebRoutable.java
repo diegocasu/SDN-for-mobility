@@ -36,13 +36,15 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
          */
         router.attach("/serviceaddress/json", ServiceAddress.class);
         
-        router.attach("/getservers/json", GetServers.class);
-        // This resource will add a given server to the list of available servers
-        // Json parameters: "ipv4","MAC"
-        router.attach("/addserver/json", AddServer.class);
-        // This resource will remove a given server to the list of available servers
-        // Json parameters: "ipv4"
-        router.attach("/removeserver/json", RemoveServer.class);
+        /**
+         * This resource will manage the servers Map.
+         * @GET 	permits to retrieve the list of servers providing the service
+         * @POST 	permits to insert a given server
+         * 			@JSON:	"ipv4","MAC"
+         * @DELETE	permits to remove a given server
+         * 			@JSON:	"ipv4"
+         */
+        router.attach("/servers/json", Server.class);
         
         /**
          * This resource will manage the accessSwitches Set.
@@ -57,9 +59,7 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
         return router;
     }
 
-    /**
-     * Set the base path.
-     */
+    //Set the base path
     @Override
     public String basePath() {
         return "/ms";
