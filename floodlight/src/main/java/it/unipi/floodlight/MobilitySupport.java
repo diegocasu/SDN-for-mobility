@@ -88,8 +88,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         IOFSwitchBackend targetSwitch = (IOFSwitchBackend) switchService.getSwitch(switchDPID);
 
         if (targetSwitch == null) {
-            logger.error("Cannot modify the priority of the default rule of switch " + switchDPID +
-                                 ". The switch is not connected to the network");
+            logger.error("Cannot modify the priority of the default rule of switch {}. " +
+                                 "The switch is not connected to the network", switchDPID);
             return false;
         }
 
@@ -117,8 +117,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         }
         targetSwitch.write(addDefaultRules);
 
-        logger.info("The priority of the default rule of switch " + switchDPID +
-                            " has been increased to " + priority);
+        logger.info("The priority of the default rule of switch {} has been increased to {}.",
+                    switchDPID, priority);
         return true;
     }
 
@@ -424,7 +424,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
                     });
 
 
-        logger.info("Output port towards the shortest path: " + outputPort);
+        logger.info("Output port towards the shortest path: {}", outputPort);
 
         instructSwitchWhenRequestToService(sw, packetIn, ethernetFrame, ipPacket,
                                            closestServer.getKey(),
@@ -440,9 +440,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         IPv4Address destinationIP = ipPacket.getDestinationAddress();
 
         logger.info("Processing an IP packet.");
-        logger.info("Switch: " + sw.getId());
-        logger.info("Source: " + sourceMAC + ", " + sourceIP);
-        logger.info("Destination: " + destinationMAC + ", " + destinationIP);
+        logger.info("Switch: {}", sw.getId());
+        logger.info("Source: {}, {}", sourceMAC, sourceIP);
+        logger.info("Destination: {}, {}", destinationMAC, destinationIP);
 
         // The packet is a request to the service from a user.
         if (isAccessSwitch(sw.getId()) && isServiceAddress(destinationMAC, destinationIP)) {
@@ -509,7 +509,12 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private Command handleArpRequest(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, ARP arpRequest) {
         IPacket arpReply = null;
 
-        if(arpRequest.getTargetProtocolAddress().compareTo(SERVICE_IP) == 0 ){
+        logger.info("Processing an ARP request.");
+        logger.info("Switch: {}", sw.getId());
+        logger.info("Source: {}", ethernetFrame.getSourceMACAddress());
+        logger.info("Destination: {}", ethernetFrame.getDestinationMACAddress());
+
+        if (arpRequest.getTargetProtocolAddress().compareTo(SERVICE_IP) == 0) {
             // The ARP request is issued to discover the virtual MAC of the service.
             arpReply = createArpReplyForService(ethernetFrame, arpRequest);
         } else {
@@ -563,7 +568,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private boolean dropPacket(IOFSwitch sw, Ethernet ethernetFrame) {
         MacAddress sourceMAC = ethernetFrame.getSourceMACAddress();
         MacAddress destinationMAC = ethernetFrame.getDestinationMACAddress();
-        logger.info("Received a packet from " + sourceMAC + " with destination " + destinationMAC);
+        logger.info("Received a packet from {} with destination {}", sourceMAC, destinationMAC);
 
         // If the packet comes from a server, it is always accepted.
         if (isServerMacAddress(sourceMAC)) {
@@ -676,9 +681,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     @Override
     public void init(FloodlightModuleContext context) throws FloodlightModuleException {
         logger.info("Initializing mobility support module.");
-        logger.info("Default service address: " + SERVICE_MAC + ", " + SERVICE_IP);
-        logger.info("Using an idle/hard timeout of " + IDLE_TIMEOUT + "/" + HARD_TIMEOUT + " seconds.");
-        logger.info("The priority of a default rule within an access switch is " + ACCESS_SWITCH_DEFAULT_RULE_PRIORITY);
+        logger.info("Default service address: {}, {}", SERVICE_MAC, SERVICE_IP);
+        logger.info("Idle timeout = {}, hard timeout = {} [seconds]", IDLE_TIMEOUT, HARD_TIMEOUT);
+        logger.info("The priority of a default rule of an access switch is {}.", ACCESS_SWITCH_DEFAULT_RULE_PRIORITY);
 
         floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
         routingService = context.getServiceImpl(IRoutingService.class);
@@ -708,13 +713,11 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         if (packet instanceof ARP) {
             ARP arpRequest = (ARP) packet;
-            logger.debug("ARP request"); // TODO: remove/rewrite
             return handleArpRequest(sw, packetIn, ethernetFrame, arpRequest);
         }
 
         if (packet instanceof IPv4) {
             IPv4 ipPacket = (IPv4) packet;
-            logger.debug("IP request"); // TODO: remove/rewrite
             return handleIpPacket(sw, packetIn, ethernetFrame, ipPacket);
         }
 
