@@ -28,12 +28,14 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
          */
         router.attach("/users/json", Users.class);
         
-        // This resource will show Server Virtual IP and MAC Address
-        router.attach("/getserveraddress/json", GetVirtualAddress.class);
-        // This resource will set Server Virtual IP and MAC Address
-        // Json parameters: "ipv4","MAC"
-        router.attach("/setserveraddress/json", SetVirtualAddress.class);
-        // This resource will show the list of servers providing the service
+        /**
+         * This resource will manage the SERVICE_IP IPv4Address and SERVICE_MAC MacAddress.
+         * @GET 	permits to get IPv4 and MAC of the service
+         * @POST 	permits to insert IPv4 and MAC of the service
+         * 			@JSON:	"ipv4","MAC"
+         */
+        router.attach("/serviceaddress/json", ServiceAddress.class);
+        
         router.attach("/getservers/json", GetServers.class);
         // This resource will add a given server to the list of available servers
         // Json parameters: "ipv4","MAC"
@@ -41,6 +43,7 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
         // This resource will remove a given server to the list of available servers
         // Json parameters: "ipv4"
         router.attach("/removeserver/json", RemoveServer.class);
+        
         /**
          * This resource will manage the accessSwitches Set.
          * @GET 	permits to retrieve the list of access switches
@@ -50,6 +53,7 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
          * 			@JSON:	"dpid"
          */
         router.attach("/accessswitches/json", AccessSwitch.class);
+        
         return router;
     }
 

@@ -1,16 +1,23 @@
 package it.unipi.floodlight.rest;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
+import org.restlet.resource.Get;
 import org.restlet.resource.Post;
 import org.restlet.resource.ServerResource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class SetVirtualAddress extends ServerResource{
+public class ServiceAddress extends ServerResource{
+	@Get("json")
+    public Map<String, Object> show() {
+    	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
+    	return ms.getVirtualAddress();
+    }
 	@Post("json")
 	public String store(String fmJson) {
 		String result = new String();
