@@ -8,12 +8,18 @@ import net.floodlightcontroller.packet.*;
 import net.floodlightcontroller.routing.*;
 import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.*;
+import net.floodlightcontroller.restserver.IRestApiService;
+import net.floodlightcontroller.restserver.RestletRoutable;
+
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.action.*;
 import org.projectfloodlight.openflow.protocol.match.*;
 import org.projectfloodlight.openflow.protocol.oxm.*;
 import org.projectfloodlight.openflow.types.*;
+import org.restlet.Context;
+import org.restlet.Restlet;
+import org.restlet.routing.Router;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,16 +27,17 @@ import java.math.BigInteger;
 import java.util.*;
 
 
-public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
+public class MobilitySupport implements IFloodlightModule, IOFMessageListener, IMobilitySupportREST {
     private final Logger logger = LoggerFactory.getLogger(MobilitySupport.class);
     private IFloodlightProviderService floodlightProvider;
     private IOFSwitchService switchService;
     private IDeviceService deviceService;
     private IRoutingService routingService;
+    private IRestApiService restApiService;
 
     // Default virtual IP and MAC addresses of the service.
     private IPv4Address SERVICE_IP = IPv4Address.of("8.8.8.8");
-    private MacAddress SERVICE_MAC =  MacAddress.of("FE:FE:FE:FE:FE:FE");
+    private MacAddress SERVICE_MAC = MacAddress.of("FE:FE:FE:FE:FE:FE");
 
     // Subscribed users.
     private Map<MacAddress, String> subscribedUsers = new HashMap<>();
@@ -671,12 +678,18 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
 
     @Override
     public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-        return null;
+    	Collection<Class<? extends IFloodlightService>> moduleServices = new ArrayList<>();
+        moduleServices.add(IMobilitySupportREST.class);
+
+        return moduleServices;
     }
 
     @Override
     public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-        return null;
+    	Map<Class<? extends IFloodlightService>, IFloodlightService> serviceImpls = new HashMap<>();
+        serviceImpls.put(IMobilitySupportREST.class, this);
+
+        return serviceImpls;
     }
 
     @Override
@@ -687,6 +700,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         dependencies.add(IOFSwitchService.class);
         dependencies.add(IDeviceService.class);
         dependencies.add(IRoutingService.class);
+        dependencies.add(IRestApiService.class);
 
         return dependencies;
     }
@@ -702,6 +716,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
         routingService = context.getServiceImpl(IRoutingService.class);
         deviceService = context.getServiceImpl(IDeviceService.class);
         switchService = context.getServiceImpl(IOFSwitchService.class);
+        restApiService = context.getServiceImpl(IRestApiService.class);
 
         // TODO: remove and let the values be initialized by the REST interface.
         servers.put(MacAddress.of("00:00:00:00:01:01"),
@@ -725,5 +740,221 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener {
     @Override
     public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
+
+        // Add as REST interface the one defined in the LoadBalancerWebRoutable class
+     	restApiService.addRestletRoutable(new MobilitySupportWebRoutable());
+    }
+
+    /**
+	 * Class to define the rest interface
+	 */
+
+    public class MobilitySupportWebRoutable implements RestletRoutable {
+	    /**
+	     * Create the Restlet router and bind to the proper resources.
+	     */
+    	@Override
+		public Restlet getRestlet(Context context) {
+
+    		Router router = new Router(context);
+
+    		// This resource will show the list of subscribed users
+	        router.attach("/getusers/json", GetUserList.class);
+	        // This resource will insert a given user
+	        // Json parameters: "username","MAC"
+	        router.attach("/insertuser/json", InsertUser.class);
+	        // This resource will remove a given user
+	        // Json parameters: "username"
+	        router.attach("/removeuser/json", RemoveUser.class);
+	        // This resource will show Server Virtual IP and MAC Address
+	        router.attach("/getserveraddress/json", GetVirtualAddress.class);
+	        // This resource will set Server Virtual IP and MAC Address
+	        // Json parameters: "ipv4","MAC"
+	        router.attach("/setserveraddress/json", SetVirtualAddress.class);
+	        // This resource will show the list of servers providing the service
+	        router.attach("/getservers/json", GetServers.class);
+	        // This resource will add a given server to the list of available servers
+	        // Json parameters: "ipv4","MAC"
+	        router.attach("/addserver/json", AddServer.class);
+	        // This resource will remove a given server to the list of available servers
+	        // Json parameters: "ipv4"
+	        router.attach("/removeserver/json", RemoveServer.class);
+	        // This resource will show the list of access switches
+	        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
+	        // This resource will add a given switch to the list of access switches
+	        // Json parameters: "dpid"
+	        router.attach("/addaccessswitch/json", AddAccessSwitch.class);
+	        // This resource will add a given switch to the list of access switches
+	        // Json parameters: "dpid"
+	        router.attach("/removeaccessswitch/json", RemoveAccessSwitch.class);
+
+			return router;
+		}
+
+	    /**
+	     * Set the base path for the Topology
+	     */
+	    @Override
+	    public String basePath() {
+	        return "/ms";
+	    }
+	}
+
+    @Override
+    public Map<String, Object> getSubscribedUsers(){
+    	Map<String, Object> list = new HashMap<String, Object>();
+
+		for (Map.Entry me : subscribedUsers.entrySet()){
+	    	list.put((String)me.getKey(),me.getValue().toString());
+	    }
+		logger.info("----> The list of subscribed users is provided");
+		return list;
+    }
+
+    @Override
+    public String subscribeUser(String username, MacAddress MAC){
+    	//check if user is already subscribed or if the username is already present.
+    	for (Map.Entry me : subscribedUsers.entrySet()){
+    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString())){
+    			logger.info("----> The user is already subscribed");
+    			return new String("User already subscribed");
+    		}
+    		if(((String)me.getKey()).equals(username)){
+    			logger.info("----> The username is already in use");
+    			return new String("Username already in use");
+    		}
+	    }
+    	//insert new user
+    	subscribedUsers.put(username,MAC);
+
+    	logger.info("----> The user is registered");
+    	return "Subscription Successful";
+    }
+
+    @Override
+    public String removeUser(String username){
+    	//check if the user is subscribed
+    	for (Map.Entry me : subscribedUsers.entrySet()){
+    		if(((String)me.getKey()).equals(username)){
+    			subscribedUsers.remove(username);
+    			logger.info("----> The user is removed");
+    			return new String("User Removed");
+    		}
+	    }
+    	logger.info("----> The username is not present");
+    	return new String("Username not present");
+    }
+
+    @Override
+    public Map<String, Object> getVirtualAddress(){
+    	Map<String, Object> info = new HashMap<String, Object>();
+
+		info.put("MAC:", SERVICE_MAC.toString());
+		info.put("IPv4:", SERVICE_IP.toString());
+
+		logger.info("----> The Virtual IP and MAC are provided");
+		return info;
+    }
+
+    @Override
+    public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC){
+    	//update virtual address
+    	SERVICE_IP=ipv4;
+    	SERVICE_MAC=MAC;
+
+    	logger.info("----> The Virtual address is updated");
+    	return "Virtual Address Updated";
+    }
+
+    @Override
+    public Map<String, Object> getServers(){
+    	Map<String, Object> list = new HashMap<String, Object>();
+
+		for (Map.Entry me : server.entrySet()){
+	    	list.put(me.getKey().toString(),me.getValue().toString());
+	    }
+
+		logger.info("----> The list of servers is provided");
+		return list;
+    }
+
+    @Override
+    public String addServer(IPv4Address ipv4, MacAddress MAC){
+    	//check if server is already present.
+    	for (Map.Entry me : server.entrySet()){
+    		if(((MacAddress)me.getValue()).toString().equals(MAC.toString())){
+    			logger.info("----> The server MAC Address is already present");
+    			return new String("MAC Address Already Present");
+    		}
+    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
+    			logger.info("----> The server IP is already present");
+    			return new String("IPv4 Already Present");
+    		}
+	    }
+
+    	//insert new user
+    	server.put(ipv4,MAC);
+
+    	logger.info("----> The server has been added");
+    	return "Server Added";
+    }
+
+    @Override
+    public String removeServer(IPv4Address ipv4){
+    	//check if the server is present
+    	for (Map.Entry me : server.entrySet()){
+    		if(((IPv4Address)me.getKey()).toString().equals(ipv4.toString())){
+    			server.remove(ipv4);
+
+    			logger.info("----> The server is been removed");
+    			return new String("Server Removed");
+    		}
+	    }
+
+    	logger.info("----> The server is not present");
+    	return new String("Server not present");
+    }
+
+    @Override
+    public Set<String> getAccessSwitches(){
+    	Set<String> list = new HashSet<String>();
+
+		for (DatapathId dpid : accessSwitch){
+	    	list.add(dpid.toString());
+	    }
+
+		logger.info("----> The list of access switches is provided");
+		return list;
+    }
+
+    @Override
+    public String addAccessSwitch(DatapathId dpid){
+    	//check if switch is already present.
+    	for (DatapathId sdpid : accessSwitch){
+	    	if(sdpid.toString().equals(dpid.toString())){
+	    		logger.info("----> The switch dpid is already present");
+	    		return new String("Switch Already Present");
+	    	}
+	    }
+
+    	//insert new access switch
+    	accessSwitch.add(dpid);
+
+    	logger.info("----> The access switch is been added");
+    	return "Access Switch Added";
+    }
+
+    @Override
+    public String removeAccessSwitch(DatapathId dpid){
+    	//check if the access switch is present
+    	for (DatapathId sdpid : accessSwitch){
+    		if(sdpid.toString().equals(dpid.toString())){
+    			accessSwitch.remove(dpid);
+    			logger.info("----> The access switch is removed");
+    			return new String("Access Switch Removed");
+    		}
+	    }
+    	logger.info("----> The access switch is not present in the list");
+    	return new String("Access Switch not present");
     }
 }
