@@ -41,18 +41,6 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
         // This resource will remove a given server to the list of available servers
         // Json parameters: "ipv4"
         router.attach("/removeserver/json", RemoveServer.class);
-        
-        
-        
-        // This resource will show the list of access switches
-        router.attach("/getaccessswitches/json", GetAccessSwitches.class);
-        // This resource will add a given switch to the list of access switches
-        // Json parameters: "dpid"
-        router.attach("/addaccessswitch/json", AddAccessSwitch.class);
-        // This resource will add a given switch to the list of access switches
-        // Json parameters: "dpid"
-        router.attach("/removeaccessswitch/json", RemoveAccessSwitch.class);
-        
         /**
          * This resource will manage the accessSwitches Set.
          * @GET 	permits to retrieve the list of access switches
