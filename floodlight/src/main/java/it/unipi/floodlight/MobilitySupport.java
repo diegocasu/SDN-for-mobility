@@ -59,25 +59,29 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private final int ACCESS_SWITCH_DEFAULT_RULE_PRIORITY = 10;
 
 
-    @Override
-    public String getName() {
-        return MobilitySupport.class.getSimpleName();
+    private boolean isAccessSwitch(DatapathId sw) {
+        return accessSwitches.contains(sw);
     }
 
-    @Override
-    public boolean isCallbackOrderingPrereq(OFType type, String name) {
-        /* The TopologyManager and DeviceManager modules must execute before the
-        MobilitySupport module, to ensure that the actual topology of the network is learnt.
-        */
-        return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")));
+    private boolean isServiceAddress(MacAddress addressMAC, IPv4Address addressIP) {
+        // Check if the given (MAC address, IP address) couple identifies the service.
+        return (addressMAC.compareTo(SERVICE_MAC) == 0) && (addressIP.compareTo(SERVICE_IP) == 0);
     }
 
-    @Override
-    public boolean isCallbackOrderingPostreq(OFType type, String name) {
-        /* The Forwarding module must execute after the MobilitySupport module,
-         so that the latter has control over the virtualization of to the service.
-        */
-        return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
+    private boolean isServerMacAddress(MacAddress address) {
+        // Check if the given MAC address identifies a server.
+        return servers.containsKey(address);
+    }
+
+    private boolean isServerCompleteAddress(MacAddress addressMAC, IPv4Address addressIP) {
+        // Check if the given (MAC address, IP address) couple identifies a server.
+        return servers.containsKey(addressMAC) && servers.get(addressMAC).getLeft().equals(addressIP);
+
+    }
+
+    private boolean isSubscribedUser(MacAddress address) {
+        // Check if the given MAC address identifies a subscribed server.
+        return subscribedUsers.containsKey(address);
     }
 
     private boolean changePriorityOfDefaultRule(DatapathId switchDPID, int priority) {
@@ -85,7 +89,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         if (targetSwitch == null) {
             logger.error("Cannot modify the priority of the default rule of switch " + switchDPID +
-                         ". The switch is not connected to the network");
+                                 ". The switch is not connected to the network");
             return false;
         }
 
@@ -116,31 +120,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         logger.info("The priority of the default rule of switch " + switchDPID +
                             " has been increased to " + priority);
         return true;
-    }
-
-    private boolean isAccessSwitch(DatapathId sw) {
-        return accessSwitches.contains(sw);
-    }
-
-    private boolean isServiceAddress(MacAddress addressMAC, IPv4Address addressIP) {
-        // Check if the given (MAC address, IP address) couple identifies the service.
-        return (addressMAC.compareTo(SERVICE_MAC) == 0) && (addressIP.compareTo(SERVICE_IP) == 0);
-    }
-
-    private boolean isServerMacAddress(MacAddress address) {
-        // Check if the given MAC address identifies a server.
-        return servers.containsKey(address);
-    }
-
-    private boolean isServerCompleteAddress(MacAddress addressMAC, IPv4Address addressIP) {
-        // Check if the given (MAC address, IP address) couple identifies a server.
-        return servers.containsKey(addressMAC) && servers.get(addressMAC).getLeft().equals(addressIP);
-
-    }
-
-    private boolean isSubscribedUser(MacAddress address) {
-        // Check if the given MAC address identifies a subscribed server.
-        return subscribedUsers.containsKey(address);
     }
 
     private int compareTranslations(Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server1,
@@ -645,35 +624,29 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     }
 
     @Override
-    public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-        logger.debug("Entering receive()"); // TODO:remove
+    public String getName() {
+        return MobilitySupport.class.getSimpleName();
+    }
 
-        OFPacketIn packetIn = (OFPacketIn) msg;
-        Ethernet ethernetFrame = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-        IPacket packet = ethernetFrame.getPayload();
+    @Override
+    public boolean isCallbackOrderingPrereq(OFType type, String name) {
+        /* The TopologyManager and DeviceManager modules must execute before the
+        MobilitySupport module, to ensure that the actual topology of the network is learnt.
+        */
+        return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")));
+    }
 
-        if (dropPacket(sw, ethernetFrame))
-            return Command.STOP;
-
-        if (packet instanceof ARP) {
-            ARP arpRequest = (ARP) packet;
-            logger.debug("ARP request"); // TODO: remove/rewrite
-            return handleArpRequest(sw, packetIn, ethernetFrame, arpRequest);
-        }
-
-        if (packet instanceof IPv4) {
-            IPv4 ipPacket = (IPv4) packet;
-            logger.debug("IP request"); // TODO: remove/rewrite
-            return handleIpPacket(sw, packetIn, ethernetFrame, ipPacket);
-        }
-
-        logger.debug("Skipped"); // TODO:remove
-        return Command.STOP;
+    @Override
+    public boolean isCallbackOrderingPostreq(OFType type, String name) {
+        /* The Forwarding module must execute after the MobilitySupport module,
+         so that the latter has control over the virtualization of to the service.
+        */
+        return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
     }
 
     @Override
     public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-    	Collection<Class<? extends IFloodlightService>> moduleServices = new ArrayList<>();
+        Collection<Class<? extends IFloodlightService>> moduleServices = new ArrayList<>();
         moduleServices.add(IMobilitySupportREST.class);
 
         return moduleServices;
@@ -681,7 +654,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     @Override
     public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-    	Map<Class<? extends IFloodlightService>, IFloodlightService> serviceImpls = new HashMap<>();
+        Map<Class<? extends IFloodlightService>, IFloodlightService> serviceImpls = new HashMap<>();
         serviceImpls.put(IMobilitySupportREST.class, this);
 
         return serviceImpls;
@@ -719,9 +692,38 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
 
         // Add as REST interface the one defined in the MobilitySupportWebRoutable class.
-     	restApiService.addRestletRoutable(new MobilitySupportWebRoutable());
+        restApiService.addRestletRoutable(new MobilitySupportWebRoutable());
     }
 
+    @Override
+    public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
+        logger.debug("Entering receive()"); // TODO:remove
+
+        OFPacketIn packetIn = (OFPacketIn) msg;
+        Ethernet ethernetFrame = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+        IPacket packet = ethernetFrame.getPayload();
+
+        if (dropPacket(sw, ethernetFrame))
+            return Command.STOP;
+
+        if (packet instanceof ARP) {
+            ARP arpRequest = (ARP) packet;
+            logger.debug("ARP request"); // TODO: remove/rewrite
+            return handleArpRequest(sw, packetIn, ethernetFrame, arpRequest);
+        }
+
+        if (packet instanceof IPv4) {
+            IPv4 ipPacket = (IPv4) packet;
+            logger.debug("IP request"); // TODO: remove/rewrite
+            return handleIpPacket(sw, packetIn, ethernetFrame, ipPacket);
+        }
+
+        logger.debug("Skipped"); // TODO:remove
+        return Command.STOP;
+    }
+
+
+    // REST interface.
     @Override
     public Map<String, Object> getSubscribedUsers() {
     	Map<String, Object> list = new HashMap<>();
