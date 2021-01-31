@@ -1,4 +1,4 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.util.Map;
 import java.util.Set;

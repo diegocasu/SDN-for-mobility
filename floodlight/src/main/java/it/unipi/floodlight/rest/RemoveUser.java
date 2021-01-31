@@ -1,17 +1,16 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.io.IOException;
 
-import org.projectfloodlight.openflow.types.DatapathId;
-import org.restlet.resource.Post;
+import org.restlet.resource.Delete;
 import org.restlet.resource.ServerResource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class AddAccessSwitch extends ServerResource{
-	@Post("json")
-	public String store(String fmJson) {
+public class RemoveUser extends ServerResource{
+	@Delete("json")
+	public String remove(String fmJson) {
 		String result = new String();
 		
         // Check if the payload is provided
@@ -24,16 +23,11 @@ public class AddAccessSwitch extends ServerResource{
 			
 			JsonNode root = mapper.readTree(fmJson);
 			
-			// Get the field dpid
-			DatapathId dpid;
-			try{
-				dpid=DatapathId.of(root.get("dpid").asText());
-			}catch(Exception me){
-				return new String("Invalid DPID format");
-			}
+			// Get the field username
+			String username = root.get("username").asText();
 			
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-			result=ms.addAccessSwitch(dpid);
+			result=ms.removeUser(username);
 			
 		} catch (IOException e) {
 			e.printStackTrace();

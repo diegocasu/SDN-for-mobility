@@ -1,15 +1,14 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.util.Map;
-import java.util.Set;
 
 import org.restlet.resource.Get;
 import org.restlet.resource.ServerResource;
 
-public class GetAccessSwitches extends ServerResource{
+public class GetServers extends ServerResource{
 	@Get("json")
-    public Set<String> show() {
+    public Map<String, Object> show() {
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-    	return ms.getAccessSwitches();
+    	return ms.getServers();
     }
 }

@@ -1,9 +1,8 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.io.IOException;
 
 import org.projectfloodlight.openflow.types.DatapathId;
-import org.projectfloodlight.openflow.types.IPv4Address;
 import org.restlet.resource.Delete;
 import org.restlet.resource.ServerResource;
 

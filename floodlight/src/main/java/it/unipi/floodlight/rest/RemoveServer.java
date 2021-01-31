@@ -1,18 +1,17 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.io.IOException;
 
 import org.projectfloodlight.openflow.types.IPv4Address;
-import org.projectfloodlight.openflow.types.MacAddress;
-import org.restlet.resource.Post;
+import org.restlet.resource.Delete;
 import org.restlet.resource.ServerResource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class SetVirtualAddress extends ServerResource{
-	@Post("json")
-	public String store(String fmJson) {
+public class RemoveServer extends ServerResource{
+	@Delete("json")
+	public String remove(String fmJson) {
 		String result = new String();
 		
         // Check if the payload is provided
@@ -32,16 +31,9 @@ public class SetVirtualAddress extends ServerResource{
 			}catch(Exception me){
 				return new String("Invalid IPv4 Address format");
 			}
-			// Get the field MAC
-			MacAddress MAC;
-			try{
-				MAC=MacAddress.of(root.get("MAC").asText());
-			}catch(Exception me){
-				return new String("Invalid MAC Address format");
-			}
 			
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-			result=ms.setVirtualAddress(ipv4, MAC);
+			result=ms.removeServer(ipv4);
 			
 		} catch (IOException e) {
 			e.printStackTrace();

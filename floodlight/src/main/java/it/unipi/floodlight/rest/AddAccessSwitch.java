@@ -1,15 +1,15 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.io.IOException;
 
-import org.projectfloodlight.openflow.types.MacAddress;
+import org.projectfloodlight.openflow.types.DatapathId;
 import org.restlet.resource.Post;
 import org.restlet.resource.ServerResource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class InsertUser extends ServerResource{
+public class AddAccessSwitch extends ServerResource{
 	@Post("json")
 	public String store(String fmJson) {
 		String result = new String();
@@ -24,18 +24,16 @@ public class InsertUser extends ServerResource{
 			
 			JsonNode root = mapper.readTree(fmJson);
 			
-			// Get the field username
-			String username = root.get("username").asText();
-			// Get the field MAC
-			MacAddress MAC;
+			// Get the field dpid
+			DatapathId dpid;
 			try{
-				MAC=MacAddress.of(root.get("MAC").asText());
+				dpid=DatapathId.of(root.get("dpid").asText());
 			}catch(Exception me){
-				return new String("Invalid MAC Address format");
+				return new String("Invalid DPID format");
 			}
 			
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-			result=ms.subscribeUser(username, MAC);
+			result=ms.addAccessSwitch(dpid);
 			
 		} catch (IOException e) {
 			e.printStackTrace();

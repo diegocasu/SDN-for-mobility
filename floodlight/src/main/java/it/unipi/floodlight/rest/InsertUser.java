@@ -1,8 +1,7 @@
-package it.unipi.floodlight;
+package it.unipi.floodlight.rest;
 
 import java.io.IOException;
 
-import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.restlet.resource.Post;
 import org.restlet.resource.ServerResource;
@@ -10,7 +9,7 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class AddServer extends ServerResource{
+public class InsertUser extends ServerResource{
 	@Post("json")
 	public String store(String fmJson) {
 		String result = new String();
@@ -25,13 +24,8 @@ public class AddServer extends ServerResource{
 			
 			JsonNode root = mapper.readTree(fmJson);
 			
-			// Get the field ipv4
-			IPv4Address ipv4;
-			try{
-				ipv4=IPv4Address.of(root.get("ipv4").asText());
-			}catch(Exception me){
-				return new String("Invalid IPv4 Address format");
-			}
+			// Get the field username
+			String username = root.get("username").asText();
 			// Get the field MAC
 			MacAddress MAC;
 			try{
@@ -41,7 +35,7 @@ public class AddServer extends ServerResource{
 			}
 			
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
-			result=ms.addServer(ipv4, MAC);
+			result=ms.subscribeUser(username, MAC);
 			
 		} catch (IOException e) {
 			e.printStackTrace();
