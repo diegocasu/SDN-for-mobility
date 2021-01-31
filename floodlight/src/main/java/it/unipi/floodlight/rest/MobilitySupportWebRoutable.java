@@ -20,10 +20,10 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
 
         /**
          * This resource will manage the subscribedUsers Map.
-         * @GET 	permit to retrieve the list of subscribed users
-         * @POST 	permit to insert a given user
+         * @GET 	permits to retrieve the list of subscribed users
+         * @POST 	permits to insert a given user
          * 			@JSON:	"username","MAC"
-         * @DELETE	permit to remove a given user
+         * @DELETE	permits to remove a given user
          * 			@JSON:	"username"
          */
         router.attach("/users/json", Users.class);
@@ -41,6 +41,9 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
         // This resource will remove a given server to the list of available servers
         // Json parameters: "ipv4"
         router.attach("/removeserver/json", RemoveServer.class);
+        
+        
+        
         // This resource will show the list of access switches
         router.attach("/getaccessswitches/json", GetAccessSwitches.class);
         // This resource will add a given switch to the list of access switches
@@ -49,7 +52,16 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
         // This resource will add a given switch to the list of access switches
         // Json parameters: "dpid"
         router.attach("/removeaccessswitch/json", RemoveAccessSwitch.class);
-
+        
+        /**
+         * This resource will manage the accessSwitches Set.
+         * @GET 	permits to retrieve the list of access switches
+         * @POST 	permits to insert a given access switch
+         * 			@JSON:	"dpid"
+         * @DELETE	permits to remove a given access switch
+         * 			@JSON:	"dpid"
+         */
+        router.attach("/accessswitches/json", AccessSwitch.class);
         return router;
     }
 
