@@ -13,7 +13,7 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class Users extends ServerResource {
+public class User extends ServerResource {
 
 	@Get("json")
     public Map<String, Object> show() {	
@@ -42,7 +42,7 @@ public class Users extends ServerResource {
 			// Get the field MAC
 			MacAddress MAC;
 			try {
-				MAC = MacAddress.of(root.get("MAC").asText());
+				MAC = MacAddress.of(root.get("mac").asText());
 			} catch (IllegalArgumentException e) {
 				result.put("message", "Invalid MAC address format");
 				return result;

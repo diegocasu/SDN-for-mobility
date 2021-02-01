@@ -26,7 +26,7 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
          * @DELETE	permits to remove a given user
          * 			@JSON:	"username"
          */
-        router.attach("/users/json", Users.class);
+        router.attach("/users/json", User.class);
         
         /**
          * This resource will manage the SERVICE_IP IPv4Address and SERVICE_MAC MacAddress.
@@ -34,7 +34,7 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
          * @POST 	permits to insert IPv4 and MAC of the service
          * 			@JSON:	"ipv4","MAC"
          */
-        router.attach("/serviceaddress/json", ServiceAddress.class);
+        router.attach("/service-address/json", ServiceAddress.class);
         
         /**
          * This resource will manage the servers Map.
@@ -54,7 +54,7 @@ public class MobilitySupportWebRoutable implements RestletRoutable {
          * @DELETE	permits to remove a given access switch
          * 			@JSON:	"dpid"
          */
-        router.attach("/accessswitches/json", AccessSwitch.class);
+        router.attach("/access-switches/json", AccessSwitch.class);
         
         return router;
     }

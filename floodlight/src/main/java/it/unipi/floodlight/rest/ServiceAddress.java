@@ -48,7 +48,7 @@ public class ServiceAddress extends ServerResource {
 			// Get the field MAC
 			MacAddress MAC;
 			try {
-				MAC = MacAddress.of(root.get("MAC").asText());
+				MAC = MacAddress.of(root.get("mac").asText());
 			} catch (IllegalArgumentException e) {
 				result.put("message", "Invalid MAC address format");
 				return result;
