@@ -811,7 +811,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
          */
         return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")));
     }
-
+    
     @Override
     public boolean isCallbackOrderingPostreq(OFType type, String name) {
         /*
@@ -820,7 +820,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         */
         return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
     }
-
+    
     @Override
     public Collection<Class<? extends IFloodlightService>> getModuleServices() {
         Collection<Class<? extends IFloodlightService>> moduleServices = new ArrayList<>();
@@ -828,7 +828,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         return moduleServices;
     }
-
+    
     @Override
     public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
         Map<Class<? extends IFloodlightService>, IFloodlightService> serviceImpls = new HashMap<>();
@@ -836,7 +836,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         return serviceImpls;
     }
-
+    
     @Override
     public Collection<Class<? extends IFloodlightService>> getModuleDependencies() {
         Collection<Class<? extends IFloodlightService>> dependencies = new ArrayList<>();
@@ -849,7 +849,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         return dependencies;
     }
-
+    
     @Override
     public void init(FloodlightModuleContext context) throws FloodlightModuleException {
         logger.info("Initializing mobility support module.");
@@ -873,7 +873,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         switchService = context.getServiceImpl(IOFSwitchService.class);
         restApiService = context.getServiceImpl(IRestApiService.class);
     }
-
+    
     @Override
     public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
         floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
@@ -881,7 +881,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         // Add as REST interface the one defined in the MobilitySupportWebRoutable class.
         restApiService.addRestletRoutable(new MobilitySupportWebRoutable());
     }
-
+    
     @Override
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
         OFPacketIn packetIn = (OFPacketIn) msg;
@@ -903,25 +903,25 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         return Command.STOP;
     }
-
+    
     @Override
     public Map<String, Object> getSubscribedUsers() {
-    	Map<String, Object> list = new HashMap<>();
+        Map<String, Object> list = new HashMap<>();
 
-		for (Map.Entry<MacAddress, String> user : subscribedUsers.entrySet()) {
+        for (Map.Entry<MacAddress, String> user : subscribedUsers.entrySet()) {
             list.put(user.getKey().toString(), user.getValue());
-	    }
+        }
 
-		loggerREST.info("The list of subscribed users has been provided.");
-		return list;
+        loggerREST.info("The list of subscribed users has been provided.");
+        return list;
     }
-
+    
     @Override
     public String subscribeUser(String username, MacAddress MAC) {
         loggerREST.info("Received request for the subscription of {}, with username \"{}\".",
                         MAC, username);
 
-    	// Check if MAC address is already subscribed.
+        // Check if MAC address is already subscribed.
         if (subscribedUsers.containsKey(MAC)) {
             loggerREST.info("The MAC address {} is already subscribed.", MAC);
             return "MAC address already subscribed";
@@ -939,7 +939,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         loggerREST.info("Registered user {} with username \"{}\".", MAC, username);
         return "Subscription successful";
     }
-
+    
     @Override
     public String removeUser(String username) {
         loggerREST.info("Received request for the cancellation of the user \"{}\".", username);
@@ -956,18 +956,18 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         loggerREST.info("Impossible to remove the user \"{}\": the username is not present.", username);
     	return "Username not found";
     }
-
+    
     @Override
     public Map<String, Object> getVirtualAddress() {
-    	Map<String, Object> info = new HashMap<>();
+        Map<String, Object> info = new HashMap<>();
 
-		info.put("MAC address:", SERVICE_MAC.toString());
-		info.put("IPv4 address:", SERVICE_IP.toString());
+        info.put("MAC address:", SERVICE_MAC.toString());
+        info.put("IPv4 address:", SERVICE_IP.toString());
 
         loggerREST.info("The virtual address of the service has been provided.");
-		return info;
+        return info;
     }
-
+    
     @Override
     public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC) {
     	SERVICE_IP = ipv4;
@@ -977,19 +977,19 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
                         SERVICE_MAC, SERVICE_IP);
     	return "Virtual address updated";
     }
-
+    
     @Override
     public Map<String, Object> getServers() {
-    	Map<String, Object> list = new HashMap<>();
+        Map<String, Object> list = new HashMap<>();
 
-		for (Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server : servers.entrySet()) {
-	    	list.put(server.getKey().toString(), server.getValue().getLeft().toString());
-	    }
+        for (Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server : servers.entrySet()) {
+            list.put(server.getKey().toString(), server.getValue().getLeft().toString());
+        }
 
-		loggerREST.info("The list of servers has been provided.");
-		return list;
+        loggerREST.info("The list of servers has been provided.");
+        return list;
     }
-
+    
     @Override
     public String addServer(IPv4Address ipv4, MacAddress MAC) {
         loggerREST.info("Received request for the insertion of server {}, {}", MAC, ipv4);
@@ -1011,7 +1011,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         loggerREST.info("Registered server {}, {}", MAC, ipv4);
     	return "Server registered";
     }
-
+    
     @Override
     public String removeServer(IPv4Address ipv4) {
         loggerREST.info("Received request for the cancellation of the server {}", ipv4);
@@ -1025,22 +1025,22 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
             }
         }
 
-            loggerREST.info("Impossible to remove the server {}: the server is not present.", ipv4);
-            return "Server not found";
+        loggerREST.info("Impossible to remove the server {}: the server is not present.", ipv4);
+        return "Server not found";
     }
-
+    
     @Override
     public Set<String> getAccessSwitches() {
-    	Set<String> list = new HashSet<>();
+        Set<String> list = new HashSet<>();
 
-		for (DatapathId dpid : accessSwitches) {
-	    	list.add(dpid.toString());
-	    }
+        for (DatapathId dpid : accessSwitches) {
+            list.add(dpid.toString());
+        }
 
         loggerREST.info("The list of access switches has been provided.");
-		return list;
+        return list;
     }
-
+    
     @Override
     public String addAccessSwitch(DatapathId dpid) {
         loggerREST.info("Received request for the insertion of the access switch {}", dpid);
@@ -1061,7 +1061,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         loggerREST.info("The switch {} is not connected to the network.", dpid);
         return "Switch not found";
     }
-
+    
     @Override
     public String removeAccessSwitch(DatapathId dpid) {
         loggerREST.info("Received request for the cancellation of the access switch {}", dpid);
