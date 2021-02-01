@@ -14,15 +14,28 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
+/**
+ * Class managing the resource "/servers/json".
+ */
 public class Server extends ServerResource {
 
+	/**
+	 * Retrieves the list of servers implementing the service.
+	 * @return  the list of servers.
+	 */
 	@Get("json")
     public Map<String, Object> show() {
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
     	return ms.getServers();
     }
 
-    @Post("json")
+	/**
+	 * Adds a server to the list of servers implementing the service.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
+	@Post("json")
 	public Map<String, String> store(String fmJson) {
 		Map<String, String> result = new HashMap<>();
 
@@ -66,6 +79,11 @@ public class Server extends ServerResource {
 		return result;
 	}
 
+	/**
+	 * Removes a server from the list of servers implementing the service.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
 	@Delete("json")
 	public Map<String, String> remove(String fmJson) {
 		Map<String, String> result = new HashMap<>();

@@ -24,10 +24,15 @@ import java.math.BigInteger;
 import java.util.*;
 
 
+/**
+ * Class implementing the MobilitySupport module exposed by the controller.
+ */
 public class MobilitySupport implements IFloodlightModule, IOFMessageListener, IMobilitySupportREST {
+    // Loggers.
     private final Logger logger = LoggerFactory.getLogger(MobilitySupport.class);
     private final Logger loggerREST = LoggerFactory.getLogger(IMobilitySupportREST.class);
 
+    // Floodlight services used by the module.
     private IFloodlightProviderService floodlightProvider;
     private IOFSwitchService switchService;
     private IDeviceService deviceService;
@@ -51,39 +56,71 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private final int IDLE_TIMEOUT = 10;
     private final int HARD_TIMEOUT = 20;
 
-    /* The default rule of a switch is to forward a packet to the controller.
-    The default rule of an access switch must have a priority higher than one,
-    so that the rules installed by the Forwarding module are ignored and the translation
-    from/to the virtual address is not skipped.
-    */
+    /*
+     * The default rule of a switch is to forward a packet to the controller.
+     * The default rule of an access switch must have a priority higher than one,
+     * so that the rules installed by the Forwarding module are ignored and
+     * the translation from/to the virtual address is not skipped.
+     */
     private final int ACCESS_SWITCH_DEFAULT_RULE_PRIORITY = 10;
 
 
+    /**
+     * Checks if the switch identified by the given DPID is registered as an access switch.
+     * @param sw  the DPID of the switch.
+     * @return    true if the DPID identifies an access switch, false otherwise.
+     */
     private boolean isAccessSwitch(DatapathId sw) {
         return accessSwitches.contains(sw);
     }
 
+    /**
+     * Checks if the given (MAC address, IP address) couple identifies the service.
+     * @param addressMAC  the MAC address of the service.
+     * @param addressIP   the IPv4 address of the service.
+     * @return            true if the couple identifies the service, false otherwise.
+     */
     private boolean isServiceAddress(MacAddress addressMAC, IPv4Address addressIP) {
-        // Check if the given (MAC address, IP address) couple identifies the service.
         return (addressMAC.compareTo(SERVICE_MAC) == 0) && (addressIP.compareTo(SERVICE_IP) == 0);
     }
 
+    /**
+     * Checks if the given MAC address identifies a server implementing the service.
+     * @param address  the MAC address of the server.
+     * @return         true if the MAC address identifies a server, false otherwise.
+     */
     private boolean isServerMacAddress(MacAddress address) {
-        // Check if the given MAC address identifies a server.
         return servers.containsKey(address);
     }
 
+    /**
+     * Checks if the given (MAC address, IP address) couple identifies a server
+     * implementing the service.
+     * @param addressMAC  the MAC address of the server.
+     * @param addressIP   the IPv4 address of the server.
+     * @return            true if the couple identifies a server, false otherwise.
+     */
     private boolean isServerCompleteAddress(MacAddress addressMAC, IPv4Address addressIP) {
-        // Check if the given (MAC address, IP address) couple identifies a server.
         return servers.containsKey(addressMAC) && servers.get(addressMAC).getLeft().equals(addressIP);
 
     }
 
+    /**
+     * Checks if the given MAC address identifies a subscribed user.
+     * @param address  the MAC address of the user.
+     * @return         true if the MAC address is the one of a subscribed user, false otherwise.
+     */
     private boolean isSubscribedUser(MacAddress address) {
-        // Check if the given MAC address identifies a subscribed server.
         return subscribedUsers.containsKey(address);
     }
 
+    /**
+     * Changes the priority of the default rule of a switch, for each effectively used flow table.
+     * @param switchDPID  the DPID of the target switch.
+     * @param priority    the new priority of the default rule.
+     * @return            true if the target switch is connected to the network and
+     *                    the flow mod is sent, false otherwise.
+     */
     private boolean changePriorityOfDefaultRule(DatapathId switchDPID, int priority) {
         IOFSwitchBackend targetSwitch = (IOFSwitchBackend) switchService.getSwitch(switchDPID);
 
@@ -93,16 +130,17 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
             return false;
         }
 
-        // Remove the default rule in each table.
+        // Remove the default rule in every table.
         OFFlowDeleteStrict deleteDefaultRule = targetSwitch.getOFFactory().buildFlowDeleteStrict()
                 .setTableId(TableId.ALL)
                 .setOutPort(OFPort.CONTROLLER)
                 .build();
         targetSwitch.write(deleteDefaultRule);
 
-        /* Insert a new default rule in each table. The insertion is done only in the tables
-        that are effectively used by the switch, which is told by getMaxTableForTableMissFlow().
-        */
+        /*
+         *  Insert a new default rule in every table. The insertion is done only in the tables
+         *  that are effectively used by the switch, which is told by getMaxTableForTableMissFlow().
+         */
         ArrayList<OFAction> outputToController = new ArrayList<>(1);
         ArrayList<OFMessage> addDefaultRules = new ArrayList<>();
         outputToController.add(targetSwitch.getOFFactory().actions().output(OFPort.CONTROLLER, 0xffFFffFF));
@@ -122,24 +160,38 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return true;
     }
 
+    /**
+     * Compares the number of translations of two servers.
+     * @param server1  the first server (left operand).
+     * @param server2  the second server (right operand).
+     * @return         -1, 0 or 1 as the number of translations of server1 is numerically
+     *                 less than, equal to, or greater than the the number of
+     *                 translations of server2.
+     */
     private int compareTranslations(Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server1,
                                     Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server2) {
-        /* Returns -1, 0 or 1 as the number of translations of server1 is numerically
-        less than, equal to, or greater than the the number of translations of server2.
-        */
         BigInteger translationsServer1 = server1.getValue().getRight();
         BigInteger translationsServer2 = server2.getValue().getRight();
 
         return translationsServer1.compareTo(translationsServer2);
     }
 
+    /**
+     * Increments the number of translations of a given server.
+     * @param server  the server involved in the increment.
+     */
     private void incrementTranslations(Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> server) {
         server.getValue().setRight(server.getValue().getRight().add(BigInteger.ONE));
     }
 
+    /**
+     * Returns the list of switches to which a device in the network is connected.
+     * @param deviceMAC the MAC address of the device.
+     * @return          the list of switches to which the device is connected, with
+     *                  the relative ports, if the device is unique and connected to the
+     *                  network; null otherwise.
+     */
     private Set<SwitchPort> getSwitchesAttachedToDevice(MacAddress deviceMAC) {
-        // Search based only on MAC addresses.
-        logger.debug("DEVICE: " + deviceMAC); // TODO: remove
         Iterator<? extends IDevice> devices = deviceService.queryDevices(deviceMAC,
                                                                          null,
                                                                          null,
@@ -159,18 +211,27 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
             }
         }
 
-        logger.debug("Number of devices: " + numberOfDevices); // TODO:remove
-        /* Conditions causing the return of no switches:
-        1) the device is not in the network anymore;
-        2) multiple devices with the same MAC address are found (it should not be possible);
-        3) the device is still a tracked device, but it is disconnected (no attachment points).
-        */
+        /*
+         *  Conditions causing the return of no switches:
+         *  1) the device is not in the network anymore;
+         *  2) multiple devices with the same MAC address are found (it should not be possible);
+         *  3) the device is still a tracked device, but it is disconnected (no attachment points).
+         */
         if (numberOfDevices == 0 || numberOfDevices > 1 || attachedSwitches.isEmpty())
             return null;
 
         return attachedSwitches;
     }
 
+    /**
+     * Returns the shortest path in terms of hops between a starting switch and
+     * a set of ending switches.
+     * @param startSwitch  the DPID of the switch representing the starting point of the path.
+     * @param endSwitches  the list of switches and ports each one representing
+     *                     an end point of the path.
+     * @return             the shortest path, if at least one path exists between the endpoints,
+     *                     null otherwise.
+     */
     private Route getShortestPath(DatapathId startSwitch, Set<SwitchPort> endSwitches) {
         Route shortestPath = null;
 
@@ -193,7 +254,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return shortestPath;
     }
 
-    private Match.Builder createMatchWhenResponseFromServer(IOFSwitch sw, Ethernet ethernetFrame, IPv4 ipPacket) {
+    /**
+     * Creates a match identifying a server as source address and a user as destination address,
+     * given the information received in a packet-in.
+     * @param sw             the switch that sent the packet-in.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     * @return               the requested match.
+     */
+    private Match createMatchWhenResponseFromServer(IOFSwitch sw, Ethernet ethernetFrame, IPv4 ipPacket) {
         MacAddress serverMAC = ethernetFrame.getSourceMACAddress();
         IPv4Address serverIP = ipPacket.getSourceAddress();
         MacAddress userMAC = ethernetFrame.getDestinationMACAddress();
@@ -206,10 +275,17 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
                 .setExact(MatchField.ETH_DST, userMAC)
                 .setExact(MatchField.IPV4_DST, userIP);
 
-        return matchBuilder;
+        return matchBuilder.build();
     }
 
-    private ArrayList<OFAction> translateSourceAddressToVirtual(IOFSwitch sw, OFPort outputPort) {
+    /**
+     * Creates the list of actions that a switch must perform to translate a physical
+     * server address (source) into the virtual address of the service.
+     * @param sw          the switch that will execute the actions.
+     * @param outputPort  the output port that will be used by the switch to forward.
+     * @return            the list of actions to perform to translate the server address.
+     */
+    private ArrayList<OFAction> translateSourceAddressIntoVirtual(IOFSwitch sw, OFPort outputPort) {
         OFOxms oxmsBuilder = sw.getOFFactory().oxms();
         OFActions actionBuilder = sw.getOFFactory().actions();
         ArrayList<OFAction> actionList = new ArrayList<>();
@@ -234,15 +310,22 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return actionList;
     }
 
+    /**
+     * Creates and sends a flow mod to a switch, so that the latter will be able to translate
+     * a source server address into the virtual address of the service and to forward the relative
+     * packet to the correct user.
+     * @param sw             the switch to which the flow mod will be sent.
+     * @param packetIn       the packet-in sent by the switch.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     * @param outputPort     the output port that the switch will use to forward the packet.
+     */
     private void instructSwitchWhenResponseFromServer(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame,
                                                       IPv4 ipPacket, OFPort outputPort) {
-        /* Create a flow mod to:
-           1) translate the server address (source address) to the virtual address of the service;
-           2) forward the packet to the user (sw is an access switch).
-        */
+
         OFFlowAdd.Builder flowModBuilder = sw.getOFFactory().buildFlowAdd();
-        Match.Builder matchBuilder = createMatchWhenResponseFromServer(sw, ethernetFrame, ipPacket);
-        ArrayList<OFAction> actionList = translateSourceAddressToVirtual(sw, outputPort);
+        Match match = createMatchWhenResponseFromServer(sw, ethernetFrame, ipPacket);
+        ArrayList<OFAction> actionList = translateSourceAddressIntoVirtual(sw, outputPort);
 
         flowModBuilder.setIdleTimeout(IDLE_TIMEOUT);
         flowModBuilder.setHardTimeout(HARD_TIMEOUT);
@@ -250,14 +333,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         flowModBuilder.setOutPort(OFPort.ANY);
         flowModBuilder.setCookie(U64.of(0));
         flowModBuilder.setPriority(FlowModUtils.PRIORITY_MAX);
-        flowModBuilder.setMatch(matchBuilder.build());
+        flowModBuilder.setMatch(match);
         flowModBuilder.setActions(actionList);
 
         sw.write(flowModBuilder.build());
 
-        /* Create a packet-out doing the same actions specified in the flow mod, so that
-        the packet arrived to the controller is delivered correctly and not dropped.
-        */
+        /*
+         *  Create a packet-out doing the same actions specified in the flow mod, so that
+         *  the packet sent to the controller is delivered correctly and not dropped.
+         */
         OFPacketOut.Builder packetOutBuilder = sw.getOFFactory().buildPacketOut();
         packetOutBuilder.setBufferId(packetIn.getBufferId());
         packetOutBuilder.setInPort(OFPort.ANY);
@@ -270,6 +354,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         sw.write(packetOutBuilder.build());
     }
 
+    /**
+     * Handles a packet-in sent by an access switch, when the latter receives a packet representing
+     * a response to a user from a server implementing the service. In particular, the translation
+     * of the source address of the server to the virtual address of the service is handled.
+     * @param sw             the switch contacting the controller.
+     * @param packetIn       the packet-in sent by the switch.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     */
     private void handleResponseFromServer(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, IPv4 ipPacket) {
         MacAddress userMAC = ethernetFrame.getDestinationMACAddress();
 
@@ -297,8 +390,17 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         logger.info("Packet-out and flow mod correctly sent to the switch.");
     }
 
-    private ArrayList<OFAction> translateDestinationAddressToPhysical(IOFSwitch sw, MacAddress serverMAC,
-                                                                      IPv4Address serverIP, OFPort outputPort) {
+    /**
+     * Creates the list of actions that a switch must perform to translate a virtual
+     * service address (destination) into the physical address of a server.
+     * @param sw          the switch that will execute the actions.
+     * @param serverMAC   the MAC address of the destination server.
+     * @param serverIP    the IPv4 address of the destination server.
+     * @param outputPort  the output port that will be used by the switch to forward.
+     * @return            the list of actions to perform to translate the virtual address.
+     */
+    private ArrayList<OFAction> translateDestinationAddressIntoPhysical(IOFSwitch sw, MacAddress serverMAC,
+                                                                        IPv4Address serverIP, OFPort outputPort) {
         OFOxms oxmsBuilder = sw.getOFFactory().oxms();
         OFActions actionBuilder = sw.getOFFactory().actions();
         ArrayList<OFAction> actionList = new ArrayList<>();
@@ -323,7 +425,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return actionList;
     }
 
-    private Match.Builder createMatchWhenRequestToService(IOFSwitch sw, Ethernet ethernetFrame, IPv4 ipPacket) {
+    /**
+     * Creates a match identifying a user as source address and the service as virtual
+     * destination address, given the information received in the packet-in.
+     * @param sw             the switch that sent the packet-in.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     * @return               the requested match.
+     */
+    private Match createMatchWhenRequestToService(IOFSwitch sw, Ethernet ethernetFrame, IPv4 ipPacket) {
         MacAddress userMAC = ethernetFrame.getSourceMACAddress();
         IPv4Address userIP = ipPacket.getSourceAddress();
         Match.Builder matchBuilder = sw.getOFFactory().buildMatch();
@@ -334,20 +444,28 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
                 .setExact(MatchField.ETH_DST, SERVICE_MAC)
                 .setExact(MatchField.IPV4_DST, SERVICE_IP);
 
-        return matchBuilder;
+        return matchBuilder.build();
     }
 
+    /**
+     * Creates and sends a flow mod to a switch, so that the latter will be able to translate
+     * the virtual destination address of the service into the address of the closest server and
+     * to forward the relative packet towards the shortest path to the server itself.
+     * @param sw             the switch to which the flow mod will be sent.
+     * @param packetIn       the packet-in sent by the switch.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     * @param serverMAC      the MAC address of the destination server.
+     * @param serverIP       the IPv4 address of the destination server.
+     * @param outputPort     the output port that the switch will use to forward the packet.
+     */
     private void instructSwitchWhenRequestToService(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame,
                                                     IPv4 ipPacket, MacAddress serverMAC, IPv4Address serverIP,
                                                     OFPort outputPort) {
-        /* Create a flow mod to:
-           1) translate the virtual address of the service (destination address) to the
-              address of the closest server;
-           2) forward the packet towards the shortest path to the server itself.
-        */
+
         OFFlowAdd.Builder flowModBuilder = sw.getOFFactory().buildFlowAdd();
-        Match.Builder matchBuilder = createMatchWhenRequestToService(sw, ethernetFrame, ipPacket);
-        ArrayList<OFAction> actionList = translateDestinationAddressToPhysical(sw, serverMAC, serverIP, outputPort);
+        Match match = createMatchWhenRequestToService(sw, ethernetFrame, ipPacket);
+        ArrayList<OFAction> actionList = translateDestinationAddressIntoPhysical(sw, serverMAC, serverIP, outputPort);
 
         flowModBuilder.setIdleTimeout(IDLE_TIMEOUT);
         flowModBuilder.setHardTimeout(HARD_TIMEOUT);
@@ -355,14 +473,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         flowModBuilder.setOutPort(OFPort.ANY);
         flowModBuilder.setCookie(U64.of(0));
         flowModBuilder.setPriority(FlowModUtils.PRIORITY_MAX);
-        flowModBuilder.setMatch(matchBuilder.build());
+        flowModBuilder.setMatch(match);
         flowModBuilder.setActions(actionList);
 
         sw.write(flowModBuilder.build());
 
-        /* Create a packet-out doing the same actions specified in the flow mod, so that
-        the packet arrived to the controller is delivered correctly and not dropped.
-        */
+        /*
+         *  Create a packet-out doing the same actions specified in the flow mod, so that
+         *  the packet sent to the controller is delivered correctly and not dropped.
+         */
         OFPacketOut.Builder packetOutBuilder = sw.getOFFactory().buildPacketOut();
         packetOutBuilder.setBufferId(packetIn.getBufferId());
         packetOutBuilder.setInPort(OFPort.ANY);
@@ -375,6 +494,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         sw.write(packetOutBuilder.build());
     }
 
+    /**
+     * Handles a packet-in sent by an access switch, when the latter receives a packet representing
+     * a request from a user to the service. In particular, the translation of the virtual destination
+     * address into the one of the topologically closest server is handled.
+     * @param sw             the switch contacting the controller.
+     * @param packetIn       the packet-in sent by the switch.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     */
     private void handleRequestToService(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, IPv4 ipPacket) {
         Map.Entry<MacAddress, MutablePair<IPv4Address, BigInteger>> closestServer = null;
         Route shortestPath = null;
@@ -433,6 +561,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         logger.info("Packet-out and flow mod correctly sent to the switch.");
     }
 
+    /**
+     * Handles a packet-in sent by a switch, when the latter receives an IP packet
+     * that passed the filtering of the controller.
+     * @param sw             the switch contacting the controller.
+     * @param packetIn       the packet-in sent by the switch.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param ipPacket       the IP packet encapsulated in the packet-in.
+     * @return               the command to forward to the module management of the controller.
+     */
     private Command handleIpPacket(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, IPv4 ipPacket) {
         MacAddress sourceMAC = ethernetFrame.getSourceMACAddress();
         MacAddress destinationMAC = ethernetFrame.getDestinationMACAddress();
@@ -466,8 +603,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return Command.CONTINUE;
     }
 
+    /**
+     * Creates an ARP reply for an ARP request targeting a generic device in the network.
+     * The method creates an ARP reply with source MAC address equal to the given device MAC address.
+     * @param ethernetFrame  the Ethernet frame encapsulating the ARP request.
+     * @param arpRequest     the ARP request.
+     * @param deviceMac      the MAC address representing the object of the request.
+     * @return               the packet encapsulating the ARP reply.
+     */
     private IPacket createArpReplyForDevice(Ethernet ethernetFrame, ARP arpRequest, MacAddress deviceMac) {
-        // Generate an ARP reply with source MAC address equal to deviceMac.
         return new Ethernet()
                 .setSourceMACAddress(deviceMac)
                 .setDestinationMACAddress(ethernetFrame.getSourceMACAddress())
@@ -486,8 +630,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
                                 .setTargetProtocolAddress(arpRequest.getSenderProtocolAddress()));
     }
 
+    /**
+     * Creates an ARP reply for an ARP request targeting the virtual address of the service.
+     * The method creates an ARP reply with source MAC address equal to the virtual MAC address
+     * of the service.
+     * @param ethernetFrame the Ethernet frame encapsulating the ARP request.
+     * @param arpRequest    the ARP request.
+     * @return              the packet encapsulating the ARP reply.
+     */
     private IPacket createArpReplyForService(Ethernet ethernetFrame, ARP arpRequest) {
-        // Generate an ARP reply with MAC address equal to SERVICE_MAC.
         return new Ethernet()
                 .setSourceMACAddress(SERVICE_MAC)
                 .setDestinationMACAddress(ethernetFrame.getSourceMACAddress())
@@ -506,6 +657,17 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
                                 .setTargetProtocolAddress(arpRequest.getSenderProtocolAddress()));
     }
 
+    /**
+     * Handles a packet-in sent by a switch, when the latter receives an ARP request targeting
+     * the virtual address of the service or the physical address of a device in the network.
+     * The method is called only after the controller filtered the packet-in, so an ARP request
+     * targeting a physical address can only come from a server.
+     * @param sw             the switch contacting the controller.
+     * @param packetIn       the packet-in sent by the switch.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @param arpRequest     the ARP request encapsulated in the frame.
+     * @return               the command to forward to the module management of the controller.
+     */
     private Command handleArpRequest(IOFSwitch sw, OFPacketIn packetIn, Ethernet ethernetFrame, ARP arpRequest) {
         IPacket arpReply = null;
 
@@ -553,10 +715,10 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         OFPort inPort = packetIn.getMatch().get(MatchField.IN_PORT);
         actionBuilder.setPort(inPort);
 
-        // Assign the action
+        // Assign the action.
         packetOutBuilder.setActions(Collections.singletonList((OFAction) actionBuilder.build()));
 
-        // Set the ARP reply as packet data
+        // Set the ARP reply as packet data.
         packetOutBuilder.setData(arpReply.serialize());
 
         logger.info("Sending out the ARP reply");
@@ -565,6 +727,13 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         return Command.STOP;
     }
 
+    /**
+     * Drops a packet that comes from an unsubscribed user or that comes from a subscribed user,
+     * but is not addressed to the service. Only ARP requests and IP packets are allowed.
+     * @param sw             the switch that sent the packet-in.
+     * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
+     * @return               true if the packet must be dropped, false otherwise.
+     */
     private boolean dropPacket(IOFSwitch sw, Ethernet ethernetFrame) {
         MacAddress sourceMAC = ethernetFrame.getSourceMACAddress();
         MacAddress destinationMAC = ethernetFrame.getDestinationMACAddress();
@@ -582,9 +751,10 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
             return true;
         }
 
-        /* If the packet is coming from a subscribed user and it is transiting through the network,
-        it passed a previous filtering done by an access switch.
-        */
+        /*
+         * If the packet is coming from a subscribed user and it is transiting through the network,
+         * it passed a previous filtering done by an access switch.
+         */
         if (!isAccessSwitch(sw.getId())) {
             logger.info("The packet comes from a subscribed user and it is " +
                                 "transiting through the network. Accepting the packet.");
@@ -627,7 +797,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         logger.info("The packet is neither an ARP request nor an IP packet. Dropping the packet.");
         return true;
     }
-
+    
     @Override
     public String getName() {
         return MobilitySupport.class.getSimpleName();
@@ -635,16 +805,18 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     @Override
     public boolean isCallbackOrderingPrereq(OFType type, String name) {
-        /* The TopologyManager and DeviceManager modules must execute before the
-        MobilitySupport module, to ensure that the actual topology of the network is learnt.
-        */
+        /*
+         * The TopologyManager and DeviceManager modules must execute before the
+         * MobilitySupport module, to ensure that the actual topology of the network is learnt.
+         */
         return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")));
     }
 
     @Override
     public boolean isCallbackOrderingPostreq(OFType type, String name) {
-        /* The Forwarding module must execute after the MobilitySupport module,
-         so that the latter has control over the virtualization of to the service.
+        /*
+         *  The Forwarding module must execute after the MobilitySupport module,
+         *  so that the latter has control over the virtualization of to the service.
         */
         return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
     }
@@ -689,7 +861,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         subscribedUsers.put(MacAddress.of("00:00:00:00:00:01"),"aaaa");
         subscribedUsers.put(MacAddress.of("00:00:00:00:00:02"),"bbbb");
         subscribedUsers.put(MacAddress.of("00:00:00:00:00:03"),"cccc");
-        
+
         //TODO: remove
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:AC:01"));
         accessSwitches.add(DatapathId.of("00:00:00:00:00:00:AC:03"));
@@ -712,8 +884,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     @Override
     public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-        logger.debug("Entering receive()"); // TODO:remove
-
         OFPacketIn packetIn = (OFPacketIn) msg;
         Ethernet ethernetFrame = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
         IPacket packet = ethernetFrame.getPayload();
@@ -731,12 +901,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
             return handleIpPacket(sw, packetIn, ethernetFrame, ipPacket);
         }
 
-        logger.debug("Skipped"); // TODO:remove
         return Command.STOP;
     }
 
-
-    // REST interface.
     @Override
     public Map<String, Object> getSubscribedUsers() {
     	Map<String, Object> list = new HashMap<>();
@@ -803,7 +970,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     @Override
     public String setVirtualAddress(IPv4Address ipv4, MacAddress MAC) {
-    	// Update virtual address
     	SERVICE_IP = ipv4;
     	SERVICE_MAC = MAC;
 
@@ -901,10 +1067,11 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         loggerREST.info("Received request for the cancellation of the access switch {}", dpid);
 
         if (accessSwitches.contains(dpid)) {
-            /* It is not necessary to check if the operation on the priority succeeded: if the
-            switch is not connected to the network, its flow table will be flushed at the
-            next handshake with the controller.
-            */
+            /*
+             *  It is not necessary to check if the operation on the priority succeeded: if the
+             *  switch is not connected to the network, its flow table will be automatically flushed
+             *  at the next handshake with the controller.
+             */
             changePriorityOfDefaultRule(dpid, 0);
 
             loggerREST.info("Removed access switch {}", dpid);

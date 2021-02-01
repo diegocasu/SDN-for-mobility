@@ -13,14 +13,27 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
+/**
+ * Class managing the resource "/service-address/json".
+ */
 public class ServiceAddress extends ServerResource {
 
+	/**
+	 * Retrieves the MAC and IPv4 addresses of the service.
+	 * @return  the MAC and IPv4 addresses of the service.
+	 */
 	@Get("json")
     public Map<String, Object> show() {
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
     	return ms.getVirtualAddress();
     }
 
+	/**
+	 * Modifies the MAC and IPv4 addresses of the service.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
 	@Post("json")
 	public Map<String, String> store(String fmJson) {
 		Map<String, String> result = new HashMap<>();

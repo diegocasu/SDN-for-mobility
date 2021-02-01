@@ -14,14 +14,27 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
+/**
+ * Class managing the resource "/access-switches/json".
+ */
 public class AccessSwitch extends ServerResource {
 
+	/**
+	 * Retrieves the list of access switches.
+	 * @return  the list of access switches.
+	 */
 	@Get("json")
     public Set<String> show() {
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
     	return ms.getAccessSwitches();
     }
 
+	/**
+	 * Adds a switch to the list of access switches.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
 	@Post("json")
 	public Map<String, String> store(String fmJson) {
 		Map<String, String> result = new HashMap<>();
@@ -37,10 +50,11 @@ public class AccessSwitch extends ServerResource {
 		try {
 			JsonNode root = mapper.readTree(fmJson);
 			
-			/* Get the field dpid.
-			DatapathId.of() does not check if the dpid is well-formed,
-			but addAccessSwitch() checks if it belongs to a connected switch.
-			*/
+			/*
+			 * Get the field dpid.
+			 * DatapathId.of() does not check if the dpid is well-formed,
+			 * but addAccessSwitch() checks if it belongs to a connected switch.
+			 */
 			DatapathId dpid = DatapathId.of(root.get("dpid").asText());
 
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
@@ -54,6 +68,11 @@ public class AccessSwitch extends ServerResource {
 		return result;
 	}
 
+	/**
+	 * Removes a switch from the list of access switches.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
 	@Delete("json")
 	public Map<String, String> remove(String fmJson) {
 		Map<String, String> result = new HashMap<>();
@@ -69,10 +88,11 @@ public class AccessSwitch extends ServerResource {
 		try {
 			JsonNode root = mapper.readTree(fmJson);
 			
-			/* Get the field dpid.
-			DatapathId.of() does not check if the dpid is well-formed,
-			but removeAccessSwitch() checks if it belongs to a connected switch.
-			*/
+			/*
+			 * Get the field dpid.
+			 * DatapathId.of() does not check if the dpid is well-formed,
+			 * but removeAccessSwitch() checks if it belongs to a connected switch.
+			 */
 			DatapathId dpid = DatapathId.of(root.get("dpid").asText());
 
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());

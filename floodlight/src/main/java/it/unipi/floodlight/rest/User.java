@@ -13,14 +13,27 @@ import org.restlet.resource.ServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
+/**
+ * Class managing the resource "/users/json".
+ */
 public class User extends ServerResource {
 
+	/**
+	 * Retrieves the list of subscribed users.
+	 * @return  the list of subscribed users.
+	 */
 	@Get("json")
     public Map<String, Object> show() {	
     	IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
     	return ms.getSubscribedUsers();
     }
 
+	/**
+	 * Subscribes a user to the service.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
 	@Post("json")
 	public Map<String, String> store(String fmJson) {
 		Map<String, String> result = new HashMap<>();
@@ -59,6 +72,11 @@ public class User extends ServerResource {
 		return result;
 	}
 
+	/**
+	 * Removes a user from the list of subscribed ones.
+	 * @param fmJson  the JSON message.
+	 * @return        a message carrying information about the success of the operation.
+	 */
 	@Delete("json")
 	public Map<String, String> remove(String fmJson) {
 		Map<String, String> result = new HashMap<>();
