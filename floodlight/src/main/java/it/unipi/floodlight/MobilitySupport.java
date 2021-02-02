@@ -856,16 +856,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         logger.info("Default service address: {}, {}", SERVICE_MAC, SERVICE_IP);
         logger.info("Idle timeout = {}, hard timeout = {} [seconds]", IDLE_TIMEOUT, HARD_TIMEOUT);
         logger.info("The priority of a default rule of an access switch is {}.", ACCESS_SWITCH_DEFAULT_RULE_PRIORITY);
-        
-        //TODO: remove
-        subscribedUsers.put(MacAddress.of("00:00:00:00:00:01"),"aaaa");
-        subscribedUsers.put(MacAddress.of("00:00:00:00:00:02"),"bbbb");
-        subscribedUsers.put(MacAddress.of("00:00:00:00:00:03"),"cccc");
-
-        //TODO: remove
-        accessSwitches.add(DatapathId.of("00:00:00:00:00:00:AC:01"));
-        accessSwitches.add(DatapathId.of("00:00:00:00:00:00:AC:03"));
-        accessSwitches.add(DatapathId.of("00:00:00:00:00:00:AC:02"));
 
         floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
         routingService = context.getServiceImpl(IRoutingService.class);
