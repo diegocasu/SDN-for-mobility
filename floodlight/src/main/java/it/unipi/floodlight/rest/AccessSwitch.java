@@ -49,13 +49,15 @@ public class AccessSwitch extends ServerResource {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
 			JsonNode root = mapper.readTree(fmJson);
-			
-			/*
-			 * Get the field dpid.
-			 * DatapathId.of() does not check if the dpid is well-formed,
-			 * but addAccessSwitch() checks if it belongs to a connected switch.
-			 */
-			DatapathId dpid = DatapathId.of(root.get("dpid").asText());
+
+			// Get the field dpid.
+			DatapathId dpid;
+			try {
+				dpid = DatapathId.of(root.get("dpid").asText());
+			} catch (NumberFormatException e) {
+				result.put("message", "Invalid DPID format");
+				return result;
+			}
 
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
 			result.put("message", ms.addAccessSwitch(dpid));
@@ -87,13 +89,15 @@ public class AccessSwitch extends ServerResource {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
 			JsonNode root = mapper.readTree(fmJson);
-			
-			/*
-			 * Get the field dpid.
-			 * DatapathId.of() does not check if the dpid is well-formed,
-			 * but removeAccessSwitch() checks if it belongs to a connected switch.
-			 */
-			DatapathId dpid = DatapathId.of(root.get("dpid").asText());
+
+			// Get the field dpid.
+			DatapathId dpid;
+			try {
+				dpid = DatapathId.of(root.get("dpid").asText());
+			} catch (NumberFormatException e) {
+				result.put("message", "Invalid DPID format");
+				return result;
+			}
 
 			IMobilitySupportREST ms = (IMobilitySupportREST) getContext().getAttributes().get(IMobilitySupportREST.class.getCanonicalName());
 			result.put("message", ms.removeAccessSwitch(dpid));
