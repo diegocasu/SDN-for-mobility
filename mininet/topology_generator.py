@@ -4,7 +4,7 @@ from mininet.node import RemoteController, OVSKernelSwitch, Host
 from mininet.log import setLogLevel, info
 from mn_wifi.cli import CLI
 from mn_wifi.net import Mininet_wifi
-from mn_wifi.node import OVSKernelAP
+from mn_wifi.node import OVSBridgeAP
 
 
 def topology():
@@ -18,14 +18,11 @@ def topology():
                            port=6653)
 
     info("*** Adding access points\n")
-    ap1 = net.addAccessPoint("ap1", cls=OVSKernelAP, ssid="ssid-ap1", client_isolation=True,
-                             mac="00:00:00:00:AC:01", dpid="00:00:00:00:00:00:AC:01",
+    ap1 = net.addAccessPoint("ap1", cls=OVSBridgeAP, ssid="ssid-ap1", client_isolation=True,
                              channel="1", position="15,30,0", protocols="OpenFlow13")
-    ap2 = net.addAccessPoint("ap2", cls=OVSKernelAP, ssid="ssid-ap2", client_isolation=True,
-                             mac="00:00:00:00:AC:02", dpid="00:00:00:00:00:00:AC:02",
+    ap2 = net.addAccessPoint("ap2", cls=OVSBridgeAP, ssid="ssid-ap2", client_isolation=True,
                              channel="6", position="55,30,0", protocols="OpenFlow13")
-    ap3 = net.addAccessPoint("ap3", cls=OVSKernelAP, ssid="ssid-ap3", client_isolation=True,
-                             mac="00:00:00:00:AC:03", dpid="00:00:00:00:00:00:AC:03",
+    ap3 = net.addAccessPoint("ap3", cls=OVSBridgeAP, ssid="ssid-ap3", client_isolation=True,
                              channel="1", position="95,30,0", protocols="OpenFlow13")
 
     info("*** Adding stations\n")
@@ -75,9 +72,9 @@ def topology():
     info("*** Starting network\n")
     net.build()
     c1.start()
-    ap1.start([c1])
-    ap2.start([c1])
-    ap3.start([c1])
+    ap1.start([])
+    ap2.start([])
+    ap3.start([])
     s1.start([c1])
     s2.start([c1])
     s3.start([c1])

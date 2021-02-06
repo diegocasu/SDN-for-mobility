@@ -69,6 +69,13 @@ def topology():
 
     net.plotGraph(max_x=100, max_y=100)
 
+    # Start mobility code.
+    net.startMobility(time=0, ac_method="ssf")
+    net.mobility(sta1, "start", time=30, position="15,30,0")
+    net.mobility(sta1, "stop", time=40, position="60,30,0")
+    net.stopMobility(time=45)
+    # End mobility code.
+
     info("*** Starting network\n")
     net.build()
     c1.start()

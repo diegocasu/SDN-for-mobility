@@ -7,14 +7,14 @@ import org.restlet.routing.Router;
 
 
 /**
- *  * Class defining the REST interface of the MobilitySupport module.
+ * Class defining the REST interface of the MobilitySupport module.
  */
 public class MobilitySupportWebRoutable implements RestletRoutable {
 
     /**
      * Creates the Restlet router and binds it to the proper resources.
      * @param context the context for constructing the restlet.
-     * @return  the Restlet router.
+     * @return        the Restlet router.
      */
     @Override
     public Restlet getRestlet(Context context) {
