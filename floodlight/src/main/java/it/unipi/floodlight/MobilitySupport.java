@@ -7,7 +7,6 @@ import net.floodlightcontroller.core.module.*;
 import net.floodlightcontroller.devicemanager.*;
 import net.floodlightcontroller.packet.*;
 import net.floodlightcontroller.routing.*;
-import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.*;
 import net.floodlightcontroller.restserver.IRestApiService;
 
@@ -53,8 +52,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     private final Set<DatapathId> accessSwitches = new HashSet<>();
 
     // Flow mod timeouts (in seconds).
-    private final int IDLE_TIMEOUT = 10;
-    private final int HARD_TIMEOUT = 20;
+    private final int IDLE_TIMEOUT = 5;
+    private final int HARD_TIMEOUT = 10;
 
     /*
      * The default rule of a switch is to forward a packet to the controller.
@@ -115,7 +114,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     }
 
     /**
-     * Changes the priority of the default rule of a switch, for each effectively used flow table.
+     * Changes the priority of the default rule of a switch, for each actually used flow table.
      * @param switchDPID  the DPID of the target switch.
      * @param priority    the new priority of the default rule.
      * @return            true if the target switch is connected to the network and
@@ -192,11 +191,8 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
      *                  network; null otherwise.
      */
     private Set<SwitchPort> getSwitchesAttachedToDevice(MacAddress deviceMAC) {
-        Iterator<? extends IDevice> devices = deviceService.queryDevices(deviceMAC,
-                                                                         null,
-                                                                         null,
-                                                                         null,
-                                                                         null);
+        Iterator<? extends IDevice> devices = deviceService.queryDevices(deviceMAC, null, null,
+                                                                         null, null);
         Set<SwitchPort> attachedSwitches = new HashSet<>();
         int numberOfDevices = 0;
 
@@ -279,10 +275,10 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     }
 
     /**
-     * Creates the list of actions that a switch must perform to translate a physical
+     * Creates the list of actions that a switch must perform to translate a real
      * server address (source) into the virtual address of the service.
      * @param sw          the switch that will execute the actions.
-     * @param outputPort  the output port that will be used by the switch to forward.
+     * @param outputPort  the output port that will be used by the switch to do the forwarding.
      * @return            the list of actions to perform to translate the server address.
      */
     private ArrayList<OFAction> translateSourceAddressIntoVirtual(IOFSwitch sw, OFPort outputPort) {
@@ -392,15 +388,15 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     /**
      * Creates the list of actions that a switch must perform to translate a virtual
-     * service address (destination) into the physical address of a server.
+     * service address (destination) into the real address of a server.
      * @param sw          the switch that will execute the actions.
      * @param serverMAC   the MAC address of the destination server.
      * @param serverIP    the IPv4 address of the destination server.
-     * @param outputPort  the output port that will be used by the switch to forward.
+     * @param outputPort  the output port that will be used by the switch to do the forwarding.
      * @return            the list of actions to perform to translate the virtual address.
      */
-    private ArrayList<OFAction> translateDestinationAddressIntoPhysical(IOFSwitch sw, MacAddress serverMAC,
-                                                                        IPv4Address serverIP, OFPort outputPort) {
+    private ArrayList<OFAction> translateDestinationAddressIntoReal(IOFSwitch sw, MacAddress serverMAC,
+                                                                    IPv4Address serverIP, OFPort outputPort) {
         OFOxms oxmsBuilder = sw.getOFFactory().oxms();
         OFActions actionBuilder = sw.getOFFactory().actions();
         ArrayList<OFAction> actionList = new ArrayList<>();
@@ -465,7 +461,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
         OFFlowAdd.Builder flowModBuilder = sw.getOFFactory().buildFlowAdd();
         Match match = createMatchWhenRequestToService(sw, ethernetFrame, ipPacket);
-        ArrayList<OFAction> actionList = translateDestinationAddressIntoPhysical(sw, serverMAC, serverIP, outputPort);
+        ArrayList<OFAction> actionList = translateDestinationAddressIntoReal(sw, serverMAC, serverIP, outputPort);
 
         flowModBuilder.setIdleTimeout(IDLE_TIMEOUT);
         flowModBuilder.setHardTimeout(HARD_TIMEOUT);
@@ -539,10 +535,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         // The output port of the current switch is specified by the second element of the path.
         OFPort outputPort = shortestPath.getPath().get(1).getPortId();
         incrementTranslations(closestServer);
-
-        logger.debug("Path towards " + closestServer); // TODO: remove
-        for (NodePortTuple pathNode : shortestPath.getPath()) //TODO: remove
-            logger.debug("Node: " + pathNode.getNodeId() + " Port: " + pathNode.getPortId()); // TODO: remove
 
         logger.info("Chosen server for the translation: {}, {}, number of translations = {}",
                     new Object[]{
@@ -659,9 +651,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
 
     /**
      * Handles a packet-in sent by a switch, when the latter receives an ARP request targeting
-     * the virtual address of the service or the physical address of a device in the network.
+     * the virtual address of the service or the real address of a device in the network.
      * The method is called only after the controller filtered the packet-in, so an ARP request
-     * targeting a physical address can only come from a server.
+     * targeting a real address can only come from a server.
      * @param sw             the switch contacting the controller.
      * @param packetIn       the packet-in sent by the switch.
      * @param ethernetFrame  the Ethernet frame encapsulated in the packet-in.
@@ -682,11 +674,9 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         } else {
             // The ARP request is issued by a server to discover the MAC address of a user or of another server.
             int numberOfDevices = 0;
-            Iterator<? extends IDevice> devices = deviceService.queryDevices(null,
-                                                                             null,
+            Iterator<? extends IDevice> devices = deviceService.queryDevices(null, null,
                                                                              arpRequest.getTargetProtocolAddress(),
-                                                                             null,
-                                                                             null);
+                                                                             null, null);
             while (devices.hasNext()) {
                 arpReply = createArpReplyForDevice(ethernetFrame, arpRequest, devices.next().getMACAddress());
                 numberOfDevices++;
