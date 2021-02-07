@@ -54,8 +54,9 @@ The installation steps are the following:
   python ../asciimation-over-http/client/movieclient.py --movie=starwars --serverIP=8.8.8.8 --serverPort=5000
   ```
 
-The scripts inside _mininet_ assume that Floodlight is running locally and
-that the controller is reachable at 127.0.0.1:8080.
+The scripts inside _mininet_ assume that the controller is running locally at 127.0.0.1,
+allowing the exchange of Openflow messages through the port 6653 and exposing the REST interface
+through the port 8080.
   
 ## Mobility scenario
 A station can be moved spatially in two ways:
