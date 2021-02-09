@@ -9,7 +9,7 @@ The repository is organized in the following way:
 - _asciimation-over-http_ contains a test application simulating a video 
   streaming between two endpoints.
   
-The test topology is the one in the following figure:
+The test topology is the one of the following figure:
 
 ![Test topology](images/Topology.png)
 
@@ -19,7 +19,7 @@ The test topology is the one in the following figure:
 - The test application and the script to inject the configuration in the controller require Python 3. 
   The required packages can be installed with pip:
     ```bash
-    pip3 install -r requirements.txt
+    pip install -r requirements.txt
     ```
   If the nodes in Mininet-Wifi do not see the Flask package during the execution, please install it via apt:
     ```bash
@@ -27,8 +27,6 @@ The test topology is the one in the following figure:
     ```
 
 ## Installation and execution
-The installation steps are the following:
-
 - Compile and execute Floodlight. In the _floodlight_ folder:
     ```bash
     ant
@@ -74,9 +72,9 @@ A station can be moved spatially in two ways:
   
   # Start mobility code.
   net.startMobility(time=0, ac_method="ssf")
-  net.mobility(sta1, "start", time=10, position="15,30,0")
-  net.mobility(sta1, "stop", time=20, position="60,30,0")
-  net.stopMobility(time=25)
+  net.mobility(sta1, "start", time=30, position="15,30,0")
+  net.mobility(sta1, "stop", time=40, position="60,30,0")
+  net.stopMobility(time=45)
   # End mobility code.
   
   info("*** Starting network\n")
