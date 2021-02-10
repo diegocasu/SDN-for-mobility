@@ -7,7 +7,7 @@ The repository is organized in the following way:
 - _mininet_ contains the scripts to generate the test topology in Mininet-WiFi and
   to inject the configuration in the controller via the REST interface.
 - _asciimation-over-http_ contains a test application simulating a video 
-  streaming between two endpoints.
+  streaming between a client and a server.
   
 The test topology is the one of the following figure:
 
@@ -37,19 +37,20 @@ The test topology is the one of the following figure:
     sudo python topology_generator.py
     ```
 - If you don't want to load manually or customise the configuration in the controller, inject the provided one. 
-  The script adds 3 users (the nodes sta1, sta2 and sta3), the servers (h1, h2, h3) and the access
+  The script adds 3 users (sta1, sta2, sta3), the servers (h1, h2, h3) and the access
   switches (s1, s3, s5). In the _mininet_ folder:
   ```bash
   python configuration_injection.py
   ``` 
-- Start the server application in one mininet node representing a server. For example, inside h1, execute:
+- Start the server application in one mininet node representing a server. For example, inside h1, 
+  execute in the _asciimation-over-http_ folder:
   ```bash
-  python ../asciimation-over-http/server/movieserver.py --serverIP=10.0.1.1 --serverPort=5000
+  python server/movieserver.py --serverIP=10.0.1.1 --serverPort=5000
   ```
 - Start the client application in one mininet node representing a station, targeting the virtual IP exposed 
-  by Floodlight (by default 8.8.8.8). For example, inside sta1, execute:
+  by Floodlight (by default 8.8.8.8). For example, inside sta1, execute in the _asciimation-over-http_ folder:
   ```bash
-  python ../asciimation-over-http/client/movieclient.py --movie=starwars --serverIP=8.8.8.8 --serverPort=5000
+  python client/movieclient.py --movie=starwars --serverIP=8.8.8.8 --serverPort=5000
   ```
 
 The scripts inside _mininet_ assume that the controller is running locally at 127.0.0.1,
