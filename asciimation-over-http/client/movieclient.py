@@ -5,13 +5,13 @@ import requests
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Play an ASCII movie streamed by a remote server')
+    parser = argparse.ArgumentParser(description="Play an ASCII movie streamed by a remote server")
 
-    parser.add_argument('--movie', action="store", dest="movie", type=str,
+    parser.add_argument("--movie", action="store", dest="movie", type=str,
                         help="Movie to stream from the remote server")
-    parser.add_argument('--serverIP', action="store", dest="server_IP", type=str,
+    parser.add_argument("--serverIP", action="store", dest="server_IP", type=str,
                         help="IP address of the server", default="localhost")
-    parser.add_argument('--serverPort', action="store", dest="server_port", type=str,
+    parser.add_argument("--serverPort", action="store", dest="server_port", type=str,
                         help="Listening port of the server", default="5000")
 
     return parser.parse_args()
@@ -56,7 +56,7 @@ def get_connection_lost_frame():
     frame_end = 13
     frame = []
 
-    with open(frame_path, 'r') as connection_lost_frame:
+    with open(frame_path, "r") as connection_lost_frame:
         for index, line in enumerate(connection_lost_frame.readlines()):
             if frame_start <= index <= frame_end:
                 frame.append(line)
@@ -107,5 +107,5 @@ def main():
     print("Thanks for watching!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

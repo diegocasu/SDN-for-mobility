@@ -3,7 +3,7 @@ import json
 
 controller_ip = "127.0.0.1:8080"
 base_url = "http://" + controller_ip + "/ms/"
-header = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+header = {"Content-type": "application/json", "Accept": "text/plain"}
 
 url_users = base_url + "users/json"
 url_servers = base_url + "servers/json"

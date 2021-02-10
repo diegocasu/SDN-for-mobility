@@ -14,11 +14,11 @@ CATALOGUE = [
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description='Stream an ASCII movie requested by a remote client')
+        description="Stream an ASCII movie requested by a remote client")
 
-    parser.add_argument('--serverIP', action="store", dest="server_IP", type=str,
+    parser.add_argument("--serverIP", action="store", dest="server_IP", type=str,
                         help="IP address of the server", default="localhost")
-    parser.add_argument('--serverPort', action="store", dest="server_port", type=str,
+    parser.add_argument("--serverPort", action="store", dest="server_port", type=str,
                         help="Listening port of the server", default="5000")
 
     return parser.parse_args()
@@ -49,7 +49,7 @@ def retrieve_movie_frame(movie_name, frame_number):
 
     movie_path = (Path(__file__).parent / movie_descriptor["path"]).resolve()
 
-    with open(movie_path, 'r') as movie_file:
+    with open(movie_path, "r") as movie_file:
         for index, line in enumerate(movie_file.readlines()):
             if frame_start <= index <= frame_end:
                 requested_frame.append(line)
@@ -60,7 +60,7 @@ def retrieve_movie_frame(movie_name, frame_number):
     return requested_frame
 
 
-@MOVIE_SERVER.route('/movies', methods=['GET'])
+@MOVIE_SERVER.route("/movies", methods=["GET"])
 def get_movie_list():
     movie_list = []
 
@@ -70,9 +70,9 @@ def get_movie_list():
     return json.dumps(movie_list), 200
 
 
-@MOVIE_SERVER.route('/movies/<movie_name>', methods=['GET'])
+@MOVIE_SERVER.route("/movies/<movie_name>", methods=["GET"])
 def get_movie_frame(movie_name):
-    frame_number = request.args.get('frame', type=int)
+    frame_number = request.args.get("frame", type=int)
 
     if frame_number is None:
         frame_number = 0
@@ -96,5 +96,5 @@ def main():
     MOVIE_SERVER.run(host=SERVER_IP, port=SERVER_PORT)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
