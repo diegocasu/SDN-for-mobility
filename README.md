@@ -56,7 +56,12 @@ The test topology is the one of the following figure:
 The scripts inside _mininet_ assume that the controller is running locally at 127.0.0.1,
 allowing the exchange of Openflow messages through the port 6653 and exposing the REST interface
 through the port 8080.
-  
+
+> **WARNING**: if an access switch is shut down or the topology is reloaded while the controller
+> is still running, the involved access switch(es) must be removed from the list of access switches and 
+> registered again using the REST interface. This operation is necessary to initialize properly their 
+> flow tables; it is not necessary for the core switches.
+
 ## Mobility scenario
 A station can be moved spatially in two ways:
 - _instantaneously_, operating on the Mininet-WiFi command line.
