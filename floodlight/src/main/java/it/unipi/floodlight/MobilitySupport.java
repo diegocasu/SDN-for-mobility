@@ -101,7 +101,6 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
      */
     private boolean isServerCompleteAddress(MacAddress addressMAC, IPv4Address addressIP) {
         return servers.containsKey(addressMAC) && servers.get(addressMAC).getLeft().equals(addressIP);
-
     }
 
     /**
@@ -154,7 +153,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         }
         targetSwitch.write(addDefaultRules);
 
-        logger.info("The priority of the default rule of switch {} has been increased to {}.",
+        logger.info("The priority of the default rule of switch {} has been set to {}.",
                     switchDPID, priority);
         return true;
     }
@@ -806,7 +805,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public boolean isCallbackOrderingPostreq(OFType type, String name) {
         /*
          *  The Forwarding module must execute after the MobilitySupport module,
-         *  so that the latter has control over the virtualization of to the service.
+         *  so that the latter has control over the virtualization of the service.
         */
         return (type.equals(OFType.PACKET_IN) && (name.equals("forwarding")));
     }
@@ -1026,7 +1025,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
         loggerREST.info("Received request for the insertion of the access switch {}", dpid);
 
     	// Check if the switch is already present.
-        if (accessSwitches.contains(dpid)) {
+        if (isAccessSwitch(dpid)) {
             loggerREST.info("The switch {} is already an access switch.", dpid);
             return "Already an access switch";
         }
@@ -1046,7 +1045,7 @@ public class MobilitySupport implements IFloodlightModule, IOFMessageListener, I
     public String removeAccessSwitch(DatapathId dpid) {
         loggerREST.info("Received request for the cancellation of the access switch {}", dpid);
 
-        if (accessSwitches.contains(dpid)) {
+        if (isAccessSwitch(dpid)) {
             /*
              *  It is not necessary to check if the operation on the priority succeeded: if the
              *  switch is not connected to the network, its flow table will be automatically flushed
