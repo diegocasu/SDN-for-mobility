@@ -12,20 +12,6 @@
 
 
 
-60
-                                                                  
-                     O R I G I N A L  W O R K                     
-                           Simon Jansen                           
-                ( http://www.asciimation.co.nz/ )                 
-                                                                  
-                                                                  
-                     A W K I F I C A T I O N                      
-                         Jonah H. Harris                          
-   ( https://github.com/jonahharris/asciimation-starwars-awk )    
-                                                                  
-                                                                  
-  All hard work was done by Simon.                                
-                                                                  
 30
 
 
