@@ -1,9 +1,16 @@
 # SDN for mobility
+Project for the Advanced Network Architectures and Wireless Systems course of the Master of Science 
+in Computer Engineering, University of Pisa.
+
+The project consists in the design and implementation of a Floodlight module supporting mobility of users
+inside a network domain.
+
 
 ## Overview
 The repository is organized in the following way:
-- _floodlight_ contains the source code of the Floodlight controller.
-  The custom module is located in the _it.unipi.floodlight_ package.
+- _floodlight_ contains the source code of the Floodlight controller, where 
+  the custom module is located in the _it.unipi.floodlight_ package. No additional changes to the
+  source code of the controller were introduced.
 - _mininet_ contains the scripts to generate the test topology in Mininet-WiFi and
   to inject the configuration in the controller via the REST interface.
 - _asciimation-over-http_ contains a test application simulating a video 
@@ -42,8 +49,8 @@ The test topology is the one of the following figure:
   ```bash
   python configuration_injection.py
   ``` 
-- Start the server application in one mininet node representing a server. For example, inside h1, 
-  execute in the _asciimation-over-http_ folder:
+- Start the server application in the mininet nodes representing the servers (the contacted server
+  is always the topologically closest one). For example, inside h1, execute in the _asciimation-over-http_ folder:
   ```bash
   python server/movieserver.py --serverIP=10.0.1.1 --serverPort=5000
   ```
@@ -52,6 +59,8 @@ The test topology is the one of the following figure:
   ```bash
   python client/movieclient.py --movie=starwars --serverIP=8.8.8.8 --serverPort=5000
   ```
+- Enjoy the movie!  
+  ![Client Streaming](images/movieclient.gif)
 
 The scripts inside _mininet_ assume that the controller is running locally at 127.0.0.1,
 allowing the exchange of Openflow messages through the port 6653 and exposing the REST interface
@@ -88,3 +97,11 @@ A station can be moved spatially in two ways:
   ...
   ```
   This example is contained in _topology_generator_with_mobility.py_.
+
+## Contributors
+[Antonio Nunzio Pio Di Noia](https://github.com/bendonio)  
+[Diego Casu](https://github.com/diegocasu)  
+[Leonardo Bernardi](https://github.com/bernardileonardo) 
+
+## Copyright
+Original art work by [Simon Jansen](http://www.asciimation.co.nz/)
